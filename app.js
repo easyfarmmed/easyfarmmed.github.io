@@ -15,7 +15,7 @@ var TGW=(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.initData)?Telegram.We
 function rnd(n,abc){var a=new Uint8Array(n),s='';crypto.getRandomValues(a);for(var i=0;i<n;i++)s+=abc[a[i]%abc.length];return s}
 function fmt(c){return c.slice(0,4)+'-'+c.slice(4,8)+'-'+c.slice(8)}
 if(!S.uid){S.uid=rnd(16,'0123456789abcdef');save()}
-if(TGW&&!S.lastSrc){S.lastSrc='tgapp'}
+if(TGW){var sp=(TGW.initDataUnsafe||{}).start_param;S.lastSrc=sp&&/^[\w-]{1,30}$/.test(sp)?sp:'tgapp';S.src=S.src||S.lastSrc}  // t.me/EasyFarmMedBot?startapp=channel → src=channel
 function hdr(){var h={'apikey':CFG.key,'Content-Type':'application/json'};if(/^eyJ/.test(CFG.key))h.Authorization='Bearer '+CFG.key;return h}
 function api(path,body,keep){return fetch(CFG.url.replace(/\/$/,'')+path,{method:'POST',headers:hdr(),body:JSON.stringify(body),keepalive:!!keep})}
 var PQ=[];try{PQ=JSON.parse(localStorage.getItem('efm-q'))||[]}catch(e){}
