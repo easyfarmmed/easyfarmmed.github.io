@@ -2,13 +2,41 @@
 var TOPICS=window.TOPICS,HANDLE='@easyfarmmed',L='ABCDE',KEY='efm-v2';
 var BY={};TOPICS.forEach(function(t){t.tests.forEach(function(q){q.slug=t.slug;q.topic=t.title;BY[q.id]=q})});
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(typeof pushProg=='function')pushProg()}
 var S=load();S.st=S.st||{};S.best=S.best||{};S.runs=S.runs||{};
 // перенос старого прогресу (окрема сторінка тренажера, ключ efm-W01-23)
 Object.keys(window.LEGACY||{}).forEach(function(k){try{var o=JSON.parse(localStorage.getItem(k));if(!o||S['mig_'+k])return;var ids=LEGACY[k],sl=ids[0].split('-')[0];
   Object.keys(o.st||{}).forEach(function(i){var id=ids[+i];if(id&&!S.st[id])S.st[id]=o.st[i]});
   if(o.best)S.best[sl]=Math.max(S.best[sl]||0,o.best);if(o.runs)S.runs[sl]=(S.runs[sl]||0)+o.runs;S['mig_'+k]=1;save()}catch(e){}});
 try{var m=location.search.match(/[?&]src=([\w-]{1,30})/);if(m){S.src=S.src||m[1];S.lastSrc=m[1];save()}}catch(e){}
+// ---- етапи 2–3: код прогресу, Telegram Mini App, анонімні відповіді (вмикається, коли в config.js є ключі Supabase) ----
+var CFG=window.EFM_CFG||{},ON=!!(CFG.url&&CFG.key),B32='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+var TGW=(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.initData)?Telegram.WebApp:null;
+function rnd(n,abc){var a=new Uint8Array(n),s='';crypto.getRandomValues(a);for(var i=0;i<n;i++)s+=abc[a[i]%abc.length];return s}
+function fmt(c){return c.slice(0,4)+'-'+c.slice(4,8)+'-'+c.slice(8)}
+if(!S.uid){S.uid=rnd(16,'0123456789abcdef');save()}
+if(TGW&&!S.lastSrc){S.lastSrc='tgapp'}
+function hdr(){var h={'apikey':CFG.key,'Content-Type':'application/json'};if(/^eyJ/.test(CFG.key))h.Authorization='Bearer '+CFG.key;return h}
+function api(path,body,keep){return fetch(CFG.url.replace(/\/$/,'')+path,{method:'POST',headers:hdr(),body:JSON.stringify(body),keepalive:!!keep})}
+var PQ=[];try{PQ=JSON.parse(localStorage.getItem('efm-q'))||[]}catch(e){}
+function keepQ(){try{localStorage.setItem('efm-q',JSON.stringify(PQ.slice(-500)))}catch(e){}}
+function flush(){if(!ON||!PQ.length||flush.busy)return;flush.busy=1;var b=PQ.splice(0,50);
+  api('/rest/v1/answers',b,true).then(function(r){flush.busy=0;if(!r.ok)throw 0;keepQ();if(PQ.length)flush()}).catch(function(){flush.busy=0;PQ=b.concat(PQ);keepQ()})}
+function logAns(q,ok,first,mode){if(!ON)return;PQ.push({uid:S.uid,qid:q.id,topic:q.slug,ok:ok,first_try:first,mode:mode,src:S.lastSrc||S.src||null,tg:!!TGW});keepQ();flush()}
+var pt=null;function pushProg(){if(!ON||!S.code)return;clearTimeout(pt);pt=setTimeout(function(){api('/rest/v1/rpc/save_progress',{p_code:S.code,p_data:{st:S.st,best:S.best,runs:S.runs}}).catch(function(){})},1200)}
+function merge(d){if(!d)return;Object.keys(d.st||{}).forEach(function(id){var a=S.st[id],b=d.st[id];if(!a||(b.c+b.w)>(a.c+a.w))S.st[id]=b});
+  Object.keys(d.best||{}).forEach(function(k){S.best[k]=Math.max(S.best[k]||0,d.best[k])});Object.keys(d.runs||{}).forEach(function(k){S.runs[k]=Math.max(S.runs[k]||0,d.runs[k])})}
+function pull(cb){if(!ON||!S.code)return cb&&cb(false);api('/rest/v1/rpc/load_progress',{p_code:S.code}).then(function(r){return r.ok?r.json():null})
+  .then(function(d){merge(d);save();pushProg();cb&&cb(!!d)}).catch(function(){cb&&cb(false)})}
+function syncCard(){if(!ON)return '';
+  if(TGW)return '<div class="note">✓ Прогрес зберігається у твоєму Telegram — відкривай тренажер з будь-якого пристрою.</div>';
+  if(S.code)return '<div class="card sync"><b>💾 Прогрес збережено</b><i>Твій код: <span class="c2">'+fmt(S.code)+'</span> — введи його на іншому пристрої</i><div class="row"><button class="btn sm alt" id="cpy">Скопіювати код</button><button class="btn sm alt" id="ent">Ввести інший</button></div></div>';
+  return '<div class="card sync"><b>💾 Зберегти прогрес між пристроями</b><i>Без реєстрації: отримай код і введи його на телефоні чи ноутбуці</i><div class="row"><button class="btn sm" id="gen">Отримати код</button><button class="btn sm alt" id="ent">У мене є код</button></div></div>'}
+function bindSync(){var g=$('gen'),e=$('ent'),c=$('cpy');
+  if(g)g.onclick=function(){S.code=rnd(12,B32);save();pushProg();home()};
+  if(c)c.onclick=function(){try{navigator.clipboard.writeText(fmt(S.code)).then(function(){c.textContent='Скопійовано ✓'})}catch(x){prompt('Твій код:',fmt(S.code))}};
+  if(e)e.onclick=function(){var v=(prompt('Введи код (12 символів):')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!v)return;if(!/^[A-Z2-9]{12}$/.test(v))return alert('Код має 12 символів (літери й цифри 2–9).');
+    S.code=v;save();pull(function(ok){alert(ok?'Прогрес завантажено ✓':'За цим кодом ще нічого немає — тепер прогрес зберігатиметься під ним.');home()})}}
 function st(id){return S.st[id]||(S.st[id]={c:0,w:0,s:0})}
 function learned(id){return (S.st[id]||{}).s>=2}function wrong(id){var s=S.st[id];return !!s&&s.w>0&&!learned(id)}
 function ids(t){return t.tests.map(function(q){return q.id})}
@@ -29,8 +57,9 @@ function home(){
    '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
    '<button class="btn sm" data-n="all">Усі '+A.length+'</button></div></div>'+
-   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з усіх тем ('+W.length+')</button>'+
-   '<div class="foot">Навчальний матеріал, не клінічна рекомендація · прогрес зберігається лише в цьому браузері</div>';
+   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з усіх тем ('+W.length+')</button>'+syncCard()+
+   '<div class="foot">Навчальний матеріал, не клінічна рекомендація · '+(ON?'анонімна статистика відповідей (без імен) допомагає нам робити кращі ролики':'прогрес зберігається лише в цьому браузері')+'</div>';
+  bindSync();
   app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){var n=b.dataset.n,s=shuffle(A);start(n=='all'?s:s.slice(0,+n),'Мікс усіх тем','mix',true,false)}});
   $('bw').onclick=function(){start(W,'Помилки з усіх тем','mix',true,false)};
 }
@@ -57,7 +86,7 @@ function next(){
   var bs=app.querySelectorAll('.opt'),ans=false;
   function pick(b){if(ans)return;ans=true;var k=+b.dataset.k,ok=k==t.k,s=st(id);
     bs.forEach(function(x){var kk=+x.dataset.k;x.classList.add(kk==t.k?'ok':x==b?'bad':'dim')});
-    if(!(id in R.first))R.first[id]=ok;
+    var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.mixed?'mix':'topic');
     R.q.shift();if(ok){s.c++;s.s++;R.done++}else{s.w++;s.s=0;R.q.splice(Math.min(3,R.q.length),0,id);if(R.miss.indexOf(id)<0)R.miss.push(id)}
     save();
     $('fb').innerHTML='<div class="ex '+(ok?'ok':'bad')+'">'+svg(ok?capyDoc('h'):racoon('w'),ok?'-200 -150 360 300':undefined)+'<div><b>'+(ok?'Правильно!':'Ні — правильна: '+esc(t.o[t.k]))+'</b>'+esc(t.x)+'</div></div><button class="btn" id="nx">Далі →</button>';
@@ -80,3 +109,8 @@ function finish(){
 }
 function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
 window.addEventListener('hashchange',route);route();
+if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
+  try{TGW.CloudStorage.getItem('efm_code',function(err,v){if(!err&&v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
+    TGW.CloudStorage.setItem('efm_code',S.code,function(){});pull(function(){if(!R)route()})})}catch(e){}}
+else if(S.code)pull(function(){if(!R)route()});
+flush();document.addEventListener('visibilitychange',function(){if(document.visibilityState=='hidden')flush()});
