@@ -37,6 +37,14 @@ function bindSync(){var g=$('gen'),e=$('ent'),c=$('cpy');
   if(c)c.onclick=function(){try{navigator.clipboard.writeText(fmt(S.code)).then(function(){c.textContent='Скопійовано ✓'})}catch(x){prompt('Твій код:',fmt(S.code))}};
   if(e)e.onclick=function(){var v=(prompt('Введи код (12 символів):')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!v)return;if(!/^[A-Z2-9]{12}$/.test(v))return alert('Код має 12 символів (літери й цифри 2–9).');
     S.code=v;save();pull(function(ok){alert(ok?'Прогрес завантажено ✓':'За цим кодом ще нічого немає — тепер прогрес зберігатиметься під ним.');home()})}}
+// ---- Пані КРОК (сова) реагує на відповідь (18.11, запит користувача) ----
+var PRAISE=['Так! Пані КРОК задоволена','Правильно! Так тримати','Бездоганно!','Саме так!'],SCOLD=['Ой, ні!','Не цього разу…','Пастка спрацювала!','Ні-ні-ні!'];
+function owlFace(ok){if(ok)return owl('h');
+  return owl('a')+'<path d="M-24,22l8,-7l8,7l8,-7l8,7l8,-7l8,7" stroke="'+C.ink+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+   // скривилась
+    '<path d="M86,-40q14,22 0,30q-14,-8 0,-30z" fill="#7cc4f2"/>'}                                                                                 // крапля поту
+function krok(ok,t){var m=(ok?PRAISE:SCOLD)[Math.floor(Math.random()*4)];
+  return '<div class="krok '+(ok?'good':'bad')+'"><div class="kowl">'+svg(owlFace(ok),'-170 -210 340 400')+(ok?'<i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i>':'')+'</div>'+
+    '<div class="kbub"><small>Пані КРОК</small><b>'+m+'</b>'+(ok?'':'<span class="kr">Правильна відповідь: '+esc(t.o[t.k])+'</span>')+'<p>'+esc(t.x)+'</p></div></div>'}
 function st(id){return S.st[id]||(S.st[id]={c:0,w:0,s:0})}
 function learned(id){return (S.st[id]||{}).s>=2}function wrong(id){var s=S.st[id];return !!s&&s.w>0&&!learned(id)}
 function ids(t){return t.tests.map(function(q){return q.id})}
@@ -89,8 +97,10 @@ function next(){
     var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.mixed?'mix':'topic');
     R.q.shift();if(ok){s.c++;s.s++;R.done++}else{s.w++;s.s=0;R.q.splice(Math.min(3,R.q.length),0,id);if(R.miss.indexOf(id)<0)R.miss.push(id)}
     save();
-    $('fb').innerHTML='<div class="ex '+(ok?'ok':'bad')+'">'+svg(ok?capyDoc('h'):racoon('w'),ok?'-200 -150 360 300':undefined)+'<div><b>'+(ok?'Правильно!':'Ні — правильна: '+esc(t.o[t.k]))+'</b>'+esc(t.x)+'</div></div><button class="btn" id="nx">Далі →</button>';
-    $('nx').onclick=next;$('nx').focus()}
+    $('fb').innerHTML=krok(ok,t)+'<button class="btn" id="nx">Далі →</button>';
+    var fbx=$('fb');if(fbx.scrollIntoView)setTimeout(function(){fbx.scrollIntoView({behavior:'smooth',block:'nearest'})},60);
+    try{if(TGW&&TGW.HapticFeedback)TGW.HapticFeedback.notificationOccurred(ok?'success':'error')}catch(e){}
+    $('nx').onclick=next}
   bs.forEach(function(b){b.onclick=function(){pick(b)}});
   document.onkeydown=function(e){var n=parseInt(e.key,10);if(n>=1&&n<=bs.length)pick(bs[n-1]);else if(e.key=='Enter'&&$('nx'))$('nx').click()};
 }
