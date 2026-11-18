@@ -61,7 +61,7 @@ function home(){
   var A=allIds(),W=A.filter(wrong),runs=0;Object.keys(S.runs).forEach(function(k){runs+=S.runs[k]});
   app.innerHTML=bar()+'<h1>Тренажери <em>тестів</em></h1><p class="lead">Тести до робочого зошита з фармакології — щотижня нова тема. Помилки повертаються, доки не запам\'ятаєш; питання вивчене після 2 правильних відповідей поспіль.</p>'+
    '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+TOPICS.length+'</b>'+plural(TOPICS.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
-   '<h2>Теми</h2>'+TOPICS.slice().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
+   (GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+'<h2>Теми</h2>'+TOPICS.slice().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
    '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
    '<button class="btn sm" data-n="all">Усі '+A.length+'</button></div></div>'+
@@ -85,7 +85,7 @@ function topic(slug){
 }
 function start(list,label,key,mixed,full){if(!list.length)return;R={q:shuffle(list),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full};window.scrollTo(0,0);next()}
 function next(){
-  if(!R)return home();if(!R.q.length)return finish();
+  if(!R)return home();if(!R.q.length)return finish();if(locked())return gate();GSHOW=0;
   var id=R.q[0],t=BY[id],ord=shuffle(t.o.map(function(_,k){return k}));window.scrollTo(0,0);
   app.innerHTML=bar()+'<div class="bar"><i style="width:'+(100*R.done/R.n)+'%"></i></div><div class="meta"><span>'+R.done+' з '+R.n+' зараховано</span><span>у черзі: '+R.q.length+'</span></div>'+
    '<div class="q"><small>'+(R.mixed?esc(t.topic).toUpperCase()+' · ':'')+'ТЕСТ'+(R.first[id]===false?' · ЩЕ РАЗ':'')+'</small>'+esc(t.q)+'</div>'+
@@ -118,28 +118,31 @@ function finish(){
   $('b1').onclick=function(){start(k,r.label,r.key,r.mixed,r.full)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
 }
 // ---- 18.11: тренажер лише для підписників каналу (вмикається "gate": true у .site_config.json, коли розгорнуто функцію check-sub) ----
-var GATE=ON&&!!CFG.gate,SUB=GATE?null:true,BOTAPP='https://t.me/EasyFarmMedBot?startapp=';
+var GATE=ON&&!!CFG.gate,SUB=GATE?null:true,BOTAPP='https://t.me/EasyFarmMedBot?startapp=',FREE=10,GSHOW=0;
+function used(){var n=0;Object.keys(S.st).forEach(function(k){var x=S.st[k];if(x&&(x.c+x.w)>0)n++});return n}
+function locked(){return GATE&&SUB!==true&&used()>=FREE}
+function after(){if(!GSHOW)return;if(SUB===true){GSHOW=0;if(R)next();else route()}else gate()}  // результат перевірки прийшов, поки видно замок
 function openTg(u){if(TGW&&TGW.openTelegramLink)TGW.openTelegramLink(u);else window.open(u,'_blank','noopener')}
-function subCheck(cb){if(!GATE)return cb();if(!TGW){SUB='web';return cb()}
-  if(S.subOk&&Date.now()-S.subOk<6*3600e3){SUB=true;return cb()}
-  SUB=null;cb();
+function subCheck(cb){if(!GATE)return cb&&cb();if(!TGW){SUB='web';return cb&&cb()}
+  if(S.subOk&&Date.now()-S.subOk<6*3600e3){SUB=true;return cb&&cb()}
+  SUB=null;cb&&cb();
   fetch(CFG.url.replace(/\/$/,'')+'/functions/v1/check-sub',{method:'POST',headers:hdr(),body:JSON.stringify({initData:TGW.initData})})
    .then(function(r){return r.json().then(function(j){return {s:r.status,j:j}})})
-   .then(function(x){if(x.j&&x.j.member===true){SUB=true;S.subOk=Date.now()}else if(x.j&&x.j.member===false){SUB=false;S.subOk=0}else SUB=true;save();cb()})
-   .catch(function(){SUB=true;cb()})}   // збій сервера — не блокуємо підписників
-function gate(){var tg='<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;margin-right:8px"><circle cx="12" cy="12" r="12" fill="#fff"/><path d="M5.5 11.8l11-4.3c.5-.2 1 .1.8.9l-1.9 8.8c-.1.6-.5.8-1 .5l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-2.9 5.3-4.8c.2-.2 0-.3-.3-.1l-6.5 4.1-2.8-.9c-.6-.2-.6-.6.1-.9z" fill="#2aabee"/></svg>';
+   .then(function(x){if(x.j&&x.j.member===true){SUB=true;S.subOk=Date.now()}else if(x.j&&x.j.member===false){SUB=false;S.subOk=0}else SUB=true;save();cb&&cb()})
+   .catch(function(){SUB=true;cb&&cb()})}   // збій сервера — не блокуємо підписників
+function gate(){GSHOW=1;window.scrollTo(0,0);var tg='<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;margin-right:8px"><circle cx="12" cy="12" r="12" fill="#fff"/><path d="M5.5 11.8l11-4.3c.5-.2 1 .1.8.9l-1.9 8.8c-.1.6-.5.8-1 .5l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-2.9 5.3-4.8c.2-.2 0-.3-.3-.1l-6.5 4.1-2.8-.9c-.6-.2-.6-.6.1-.9z" fill="#2aabee"/></svg>';
   if(SUB===null){app.innerHTML=bar()+'<div class="hero">'+svg(owl('s'))+'</div><p class="lead" style="text-align:center">Перевіряю підписку на канал…</p>';return}
   var web=SUB==='web';
-  app.innerHTML=bar()+'<div class="hero">'+svg(owl('s'))+'</div><h1>Тренажер — для <em>підписників</em></h1>'+
-   '<p class="lead">'+(web?'Тести відкриваються в Telegram для підписників каналу '+HANDLE+'. Це безкоштовно: прогрес збережеться у твоєму Telegram.':'Підпишись на канал '+HANDLE+' — і всі тести відкриються. Безкоштовно.')+'</p>'+
+  app.innerHTML=bar()+'<div class="hero">'+svg(owl('s'))+'</div><h1>'+FREE+' тестів <em>пройдено!</em></h1>'+
+   '<p class="lead">'+(web?'Перші '+FREE+' тестів — безкоштовно для всіх. Далі тренажер відкривається в Telegram для підписників каналу '+HANDLE+' — теж безкоштовно.':'Перші '+FREE+' тестів — для всіх. Щоб продовжити, підпишись на канал '+HANDLE+' — і відкриються всі тести. Безкоштовно.')+'</p>'+
    (web?'<button class="btn" id="g1" style="background:#2aabee">'+tg+'Відкрити тренажер у Telegram</button><button class="btn alt" id="g2">Спершу підписатись на канал</button>'
        :'<button class="btn" id="g2" style="background:#2aabee">'+tg+'Підписатись на '+HANDLE+'</button><button class="btn alt" id="g3">Я підписався — перевірити</button>')+
-   '<div class="note">У каналі — ролики, конспекти, розбори тестів і PDF до кожної теми.</div>';
+   '<div class="note">У каналі — ролики, конспекти, розбори тестів і PDF до кожної теми.</div><a class="btn alt" href="#/" style="margin-top:14px">На головну</a>';
   if($('g1'))$('g1').onclick=function(){openTg(BOTAPP+(S.lastSrc||'web'))};
   $('g2').onclick=function(){openTg('https://t.me/easyfarmmed')};
-  if($('g3'))$('g3').onclick=function(){S.subOk=0;subCheck(route)}}
-function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);if(SUB!==true)return gate();var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
-window.addEventListener('hashchange',route);subCheck(route);
+  if($('g3'))$('g3').onclick=function(){S.subOk=0;subCheck(after)}}
+function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
+window.addEventListener('hashchange',route);route();subCheck(after);
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
   try{TGW.CloudStorage.getItem('efm_code',function(err,v){if(!err&&v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
     TGW.CloudStorage.setItem('efm_code',S.code,function(){});pull(function(){if(!R)route()})})}catch(e){}}
