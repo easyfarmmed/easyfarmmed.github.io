@@ -1,6 +1,6 @@
 
 var TOPICS=window.TOPICS,HANDLE='@easyfarmmed',L='ABCDE',KEY='efm-v2';
-var BY={};TOPICS.forEach(function(t){t.tests.forEach(function(q){q.slug=t.slug;q.topic=t.title;BY[q.id]=q})});
+var BY={};TOPICS.forEach(function(t){t.tests.concat(t.warm||[]).forEach(function(q){q.slug=t.slug;q.topic=t.title;BY[q.id]=q})});
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(typeof pushProg=='function')pushProg()}
 var S=load();S.st=S.st||{};S.best=S.best||{};S.runs=S.runs||{};
@@ -65,11 +65,13 @@ function home(){
    '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
    '<button class="btn sm" data-n="all">Усі '+A.length+'</button></div></div>'+
-   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з усіх тем ('+W.length+')</button>'+syncCard()+
+   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з усіх тем ('+W.length+')</button>'+
+   '<button class="btn share" id="bsh">📤 Поділитись тренажером з одногрупниками</button>'+syncCard()+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація · '+(ON?'анонімна статистика відповідей (без імен) допомагає нам робити кращі ролики':'прогрес зберігається лише в цьому браузері')+'</div>';
   bindSync();
   app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){var n=b.dataset.n,s=shuffle(A);start(n=='all'?s:s.slice(0,+n),'Мікс усіх тем','mix',true,false)}});
   $('bw').onclick=function(){start(W,'Помилки з усіх тем','mix',true,false)};
+  $('bsh').onclick=function(){share('Тренажер тестів КРОК 1 з фармакології до робочого зошита: помилки повертаються, доки не запам\'ятаєш. Безкоштовно:','home')};
 }
 function topic(slug){
   var t=TOPICS.filter(function(x){return x.slug==slug})[0];if(!t)return home();
@@ -77,24 +79,26 @@ function topic(slug){
   app.innerHTML=bar()+'<a class="back" href="#/">← Усі теми</a><h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 · '+esc(t.code)+'</p>'+
    '<div class="hero">'+svg(owl('s'))+'</div>'+
    '<div class="stats"><div><b>'+a.filter(learned).length+'/'+a.length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
-   '<button class="btn" id="b1">Усі тести теми</button>'+
+   (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div><h2>Тести зошита</h2>':'')+
+   '<button class="btn" id="b1">'+(t.warm&&t.warm.length?'Одразу до тестів ('+a.length+')':'Усі тести теми')+'</button>'+
    '<button class="btn alt" id="b2"'+(W.length?'':' disabled')+'>Лише помилки ('+W.length+')</button>'+
    '<button class="btn alt" id="b3"'+(F.length&&F.length<a.length?'':' disabled')+'>Невивчені ('+F.length+')</button>'+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація</div>';
+  if($('bwu'))$('bwu').onclick=function(){start(t.warm.map(function(q){return q.id}),'Розминка · '+t.title,slug,false,false,true)};
   $('b1').onclick=function(){start(a,t.title,slug,false,true)};$('b2').onclick=function(){start(W,t.title,slug,false,false)};$('b3').onclick=function(){start(F,t.title,slug,false,false)};
 }
-function start(list,label,key,mixed,full){if(!list.length)return;R={q:shuffle(list),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full};window.scrollTo(0,0);next()}
+function start(list,label,key,mixed,full,warm){if(!list.length)return;R={q:shuffle(list),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm};window.scrollTo(0,0);next()}
 function next(){
-  if(!R)return home();if(!R.q.length)return finish();if(locked())return gate();GSHOW=0;
+  if(!R)return home();if(!R.q.length)return finish();if(!R.warm&&locked())return gate();GSHOW=0;
   var id=R.q[0],t=BY[id],ord=shuffle(t.o.map(function(_,k){return k}));window.scrollTo(0,0);
   app.innerHTML=bar()+'<div class="bar"><i style="width:'+(100*R.done/R.n)+'%"></i></div><div class="meta"><span>'+R.done+' з '+R.n+' зараховано</span><span>у черзі: '+R.q.length+'</span></div>'+
-   '<div class="q"><small>'+(R.mixed?esc(t.topic).toUpperCase()+' · ':'')+'ТЕСТ'+(R.first[id]===false?' · ЩЕ РАЗ':'')+'</small>'+esc(t.q)+'</div>'+
+   '<div class="q"><small>'+(R.mixed?esc(t.topic).toUpperCase()+' · ':'')+(R.warm?'РОЗМИНКА':'ТЕСТ')+(R.first[id]===false?' · ЩЕ РАЗ':'')+'</small>'+esc(t.q)+'</div>'+
    ord.map(function(k,j){return '<button class="opt" data-k="'+k+'"><i>'+L[j]+'</i><span>'+esc(t.o[k])+'</span></button>'}).join('')+'<div id="fb"></div>'+
    '<a class="back sm" href="#/">✕ Завершити</a>';
   var bs=app.querySelectorAll('.opt'),ans=false;
   function pick(b){if(ans)return;ans=true;var k=+b.dataset.k,ok=k==t.k,s=st(id);
     bs.forEach(function(x){var kk=+x.dataset.k;x.classList.add(kk==t.k?'ok':x==b?'bad':'dim')});
-    var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.mixed?'mix':'topic');
+    var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.warm?'warm':R.mixed?'mix':'topic');
     R.q.shift();if(ok){s.c++;s.s++;R.done++}else{s.w++;s.s=0;R.q.splice(Math.min(3,R.q.length),0,id);if(R.miss.indexOf(id)<0)R.miss.push(id)}
     save();
     $('fb').innerHTML=krok(ok,t)+'<button class="btn" id="nx">Далі →</button>';
@@ -107,19 +111,29 @@ function next(){
 function finish(){
   var r=R;R=null;document.onkeydown=null;
   var k=Object.keys(r.first),ok=k.filter(function(i){return r.first[i]}).length,perfect=ok==r.n;
-  S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok);save();
+  if(!r.warm){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
+  var TP=TOPICS.filter(function(x){return x.slug==r.key})[0];
+  var shTxt=r.warm?'Розім\'явся перед тестами КРОК 1 з фармакології («'+(TP?TP.title:'')+'») — '+ok+' з '+r.n+'. Тренажер до робочого зошита, безкоштовно:':'Пройшов тренажер «'+r.label+'»: '+ok+' з '+r.n+' з першої спроби 💪 Пані КРОК 0 : '+ok+' Я. Спробуй і ти — тести КРОК 1 до робочого зошита з фармакології:';
   var back=r.key=='mix'?'#/':'#/t/'+r.key;
   app.innerHTML=bar()+'<h1>'+(perfect?'Ідеально!':'Зараховано всі '+r.n)+'</h1><p class="lead">'+esc(r.label)+' · з першої спроби: <b>'+ok+' з '+r.n+'</b> ('+Math.round(100*ok/r.n)+'%).'+(perfect?' Пані КРОК тебе не підловить.':' Помилки нижче — пройди їх ще раз.')+'</p>'+
    '<div class="hero">'+svg(perfect?capyDoc('h'):racoon('s'),perfect?'-200 -150 360 300':undefined)+'</div>'+
    (r.miss.length?'<ul class="list">'+r.miss.map(function(i){var t=BY[i];return '<li>'+(r.mixed?'<small>'+esc(t.topic)+'</small>':'')+esc(t.q)+'<br><b>'+esc(t.o[t.k])+'</b></li>'}).join('')+'</ul>':'')+
-   '<button class="btn" id="b1">Ще раз</button>'+(r.miss.length?'<button class="btn alt" id="b2">Лише помилки ('+r.miss.length+')</button>':'')+
+   (r.warm&&TP?'<button class="btn" id="bgo">Тепер — тести зошита ('+TP.tests.length+') →</button>':'')+
+   '<button class="btn'+(r.warm?' alt':'')+'" id="b1">'+(r.warm?'Розминка ще раз':'Ще раз')+'</button>'+(r.miss.length&&!r.warm?'<button class="btn alt" id="b2">Лише помилки ('+r.miss.length+')</button>':'')+
    (r.key=='mix'?'':'<a class="btn alt" href="'+back+'">До теми</a>')+'<a class="btn alt" href="#/">Усі теми</a>'+
+   '<button class="btn share" id="bsh">📤 Поділитись з одногрупниками</button>'+
    '<a class="btn alt" href="https://t.me/easyfarmmed" target="_blank" rel="noopener">Розбори й конспекти — Telegram '+HANDLE+'</a>';
-  $('b1').onclick=function(){start(k,r.label,r.key,r.mixed,r.full)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
+  $('bsh').onclick=function(){share(shTxt,'res')};if($('bgo'))$('bgo').onclick=function(){start(ids(TP),TP.title,TP.slug,false,true)};
+  $('b1').onclick=function(){start(k,r.label,r.key,r.mixed,r.full,r.warm)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
 }
+// ---- 19.11: «Поділитись» — пересилання в Telegram (у Mini App), системне меню телефона або Telegram у новій вкладці ----
+function share(text,tag){var url='https://t.me/EasyFarmMedBot?startapp=share-'+tag,tg='https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text);
+  if(TGW&&TGW.openTelegramLink)return TGW.openTelegramLink(tg);
+  if(navigator.share)return navigator.share({text:text,url:url}).catch(function(){});
+  window.open(tg,'_blank','noopener')}
 // ---- 18.11: тренажер лише для підписників каналу (вмикається "gate": true у .site_config.json, коли розгорнуто функцію check-sub) ----
 var GATE=ON&&!!CFG.gate,SUB=GATE?null:true,BOTAPP='https://t.me/EasyFarmMedBot?startapp=',FREE=10,GSHOW=0;
-function used(){var n=0;Object.keys(S.st).forEach(function(k){var x=S.st[k];if(x&&(x.c+x.w)>0)n++});return n}
+function used(){var n=0;Object.keys(S.st).forEach(function(k){var x=S.st[k];if(k.slice(0,3)!='wu-'&&x&&(x.c+x.w)>0)n++});return n}
 function locked(){return GATE&&SUB!==true&&used()>=FREE}
 function after(){if(!GSHOW)return;if(SUB===true){GSHOW=0;if(R)next();else route()}else gate()}  // результат перевірки прийшов, поки видно замок
 function openTg(u){if(TGW&&TGW.openTelegramLink)TGW.openTelegramLink(u);else window.open(u,'_blank','noopener')}
