@@ -117,8 +117,29 @@ function finish(){
    '<a class="btn alt" href="https://t.me/easyfarmmed" target="_blank" rel="noopener">Розбори й конспекти — Telegram '+HANDLE+'</a>';
   $('b1').onclick=function(){start(k,r.label,r.key,r.mixed,r.full)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
 }
-function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
-window.addEventListener('hashchange',route);route();
+// ---- 18.11: тренажер лише для підписників каналу (вмикається "gate": true у .site_config.json, коли розгорнуто функцію check-sub) ----
+var GATE=ON&&!!CFG.gate,SUB=GATE?null:true,BOTAPP='https://t.me/EasyFarmMedBot?startapp=';
+function openTg(u){if(TGW&&TGW.openTelegramLink)TGW.openTelegramLink(u);else window.open(u,'_blank','noopener')}
+function subCheck(cb){if(!GATE)return cb();if(!TGW){SUB='web';return cb()}
+  if(S.subOk&&Date.now()-S.subOk<6*3600e3){SUB=true;return cb()}
+  SUB=null;cb();
+  fetch(CFG.url.replace(/\/$/,'')+'/functions/v1/check-sub',{method:'POST',headers:hdr(),body:JSON.stringify({initData:TGW.initData})})
+   .then(function(r){return r.json().then(function(j){return {s:r.status,j:j}})})
+   .then(function(x){if(x.j&&x.j.member===true){SUB=true;S.subOk=Date.now()}else if(x.j&&x.j.member===false){SUB=false;S.subOk=0}else SUB=true;save();cb()})
+   .catch(function(){SUB=true;cb()})}   // збій сервера — не блокуємо підписників
+function gate(){var tg='<svg viewBox="0 0 24 24" width="22" height="22" style="vertical-align:-5px;margin-right:8px"><circle cx="12" cy="12" r="12" fill="#fff"/><path d="M5.5 11.8l11-4.3c.5-.2 1 .1.8.9l-1.9 8.8c-.1.6-.5.8-1 .5l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-2.9 5.3-4.8c.2-.2 0-.3-.3-.1l-6.5 4.1-2.8-.9c-.6-.2-.6-.6.1-.9z" fill="#2aabee"/></svg>';
+  if(SUB===null){app.innerHTML=bar()+'<div class="hero">'+svg(owl('s'))+'</div><p class="lead" style="text-align:center">Перевіряю підписку на канал…</p>';return}
+  var web=SUB==='web';
+  app.innerHTML=bar()+'<div class="hero">'+svg(owl('s'))+'</div><h1>Тренажер — для <em>підписників</em></h1>'+
+   '<p class="lead">'+(web?'Тести відкриваються в Telegram для підписників каналу '+HANDLE+'. Це безкоштовно: прогрес збережеться у твоєму Telegram.':'Підпишись на канал '+HANDLE+' — і всі тести відкриються. Безкоштовно.')+'</p>'+
+   (web?'<button class="btn" id="g1" style="background:#2aabee">'+tg+'Відкрити тренажер у Telegram</button><button class="btn alt" id="g2">Спершу підписатись на канал</button>'
+       :'<button class="btn" id="g2" style="background:#2aabee">'+tg+'Підписатись на '+HANDLE+'</button><button class="btn alt" id="g3">Я підписався — перевірити</button>')+
+   '<div class="note">У каналі — ролики, конспекти, розбори тестів і PDF до кожної теми.</div>';
+  if($('g1'))$('g1').onclick=function(){openTg(BOTAPP+(S.lastSrc||'web'))};
+  $('g2').onclick=function(){openTg('https://t.me/easyfarmmed')};
+  if($('g3'))$('g3').onclick=function(){S.subOk=0;subCheck(route)}}
+function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);if(SUB!==true)return gate();var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
+window.addEventListener('hashchange',route);subCheck(route);
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
   try{TGW.CloudStorage.getItem('efm_code',function(err,v){if(!err&&v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
     TGW.CloudStorage.setItem('efm_code',S.code,function(){});pull(function(){if(!R)route()})})}catch(e){}}
