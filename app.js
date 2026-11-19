@@ -24,11 +24,11 @@ function flush(){if(!ON||!PQ.length||flush.busy)return;flush.busy=1;var b=PQ.spl
   api('/rest/v1/answers',b,true).then(function(r){flush.busy=0;if(!r.ok)throw 0;keepQ();if(PQ.length)flush()}).catch(function(){flush.busy=0;PQ=b.concat(PQ);keepQ()})}
 function logAns(q,ok,first,mode){if(!ON)return;PQ.push({uid:S.uid,qid:q.id,topic:q.slug,ok:ok,first_try:first,mode:mode,src:S.lastSrc||S.src||null,tg:!!TGW});keepQ();flush()}
 // 19.11: прогрес — компактно (лише питання з відповідями), затримка 0,5 с, а при закритті/згортанні — одразу (keepalive)
-function progData(){var st={};Object.keys(S.st).forEach(function(k){var x=S.st[k];if(x&&(x.c+x.w)>0)st[k]=x});return {st:st,best:S.best,runs:S.runs}}
+function progData(){var st={};Object.keys(S.st).forEach(function(k){var x=S.st[k];if(x&&(x.c+x.w)>0)st[k]=x});return {st:st,best:S.best,runs:S.runs,run:S.run||null,rt:S.rt||0}}
 var pt=null,pdirty=0;function pushNow(keep){if(!ON||!S.code||!pdirty)return;clearTimeout(pt);pdirty=0;
   api('/rest/v1/rpc/save_progress',{p_code:S.code,p_data:progData()},keep).then(function(r){if(!r.ok)pdirty=1}).catch(function(){pdirty=1})}
 function pushProg(){if(!ON||!S.code)return;pdirty=1;clearTimeout(pt);pt=setTimeout(function(){pushNow(false)},500)}
-function merge(d){if(!d)return;Object.keys(d.st||{}).forEach(function(id){var a=S.st[id],b=d.st[id];if(!a||(b.c+b.w)>(a.c+a.w))S.st[id]=b});
+function merge(d){if(!d)return;if((d.rt||0)>(S.rt||0)){S.rt=d.rt;if(d.run)S.run=d.run;else delete S.run}Object.keys(d.st||{}).forEach(function(id){var a=S.st[id],b=d.st[id];if(!a||(b.c+b.w)>(a.c+a.w))S.st[id]=b});
   Object.keys(d.best||{}).forEach(function(k){S.best[k]=Math.max(S.best[k]||0,d.best[k])});Object.keys(d.runs||{}).forEach(function(k){S.runs[k]=Math.max(S.runs[k]||0,d.runs[k])})}
 function pull(cb){if(!ON||!S.code)return cb&&cb(false);api('/rest/v1/rpc/load_progress',{p_code:S.code}).then(function(r){return r.ok?r.json():null})
   .then(function(d){merge(d);save();pushProg();cb&&cb(!!d)}).catch(function(){cb&&cb(false)})}
@@ -66,7 +66,7 @@ function home(){
   var A=allIds(),W=A.filter(wrong),runs=0;Object.keys(S.runs).forEach(function(k){runs+=S.runs[k]});
   app.innerHTML=bar()+'<h1>Тренажери <em>тестів</em></h1><p class="lead">Тести до робочого зошита з фармакології — щотижня нова тема. Помилки повертаються, доки не запам\'ятаєш; питання вивчене після 2 правильних відповідей поспіль.</p>'+
    '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+WB().length+'</b>'+plural(WB().length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
-   (GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+'<h2>Теми зошита</h2>'+WB().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
+   (GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+resumeCard()+'<h2>Теми зошита</h2>'+WB().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
    '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
    '<button class="btn sm" data-n="all">Усі '+A.length+'</button></div></div>'+
@@ -81,7 +81,7 @@ function home(){
 }
 function krokHome(){
   var L=KB(),A=allIds(L),W=A.filter(wrong);
-  app.innerHTML=bar()+'<a class="back" href="#/">← На головну</a><h1>База <em>КРОК</em></h1><p class="lead">Тести КРОК 1 з фармакології за темами — зокрема ті, яких ще не було на заняттях. Базу поступово доповнюємо.</p>'+
+  app.innerHTML=bar()+'<a class="back" href="#/">← На головну</a><h1>База <em>КРОК</em></h1><p class="lead">Тести КРОК 1 з фармакології за темами — зокрема ті, яких ще не було на заняттях. Базу поступово доповнюємо.</p>'+resumeCard()+
    '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+L.length+'</b>'+plural(L.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+W.length+'</b>помилок</div></div>'+
    '<div class="card mix"><b>🎲 Мікс бази КРОК</b><i>тести з усіх тем бази упереміш</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+'</div></div>'+
@@ -95,7 +95,7 @@ function topic(slug){
   var t=TOPICS.filter(function(x){return x.slug==slug})[0];if(!t)return home();
   var a=ids(t),W=a.filter(wrong),F=a.filter(function(i){return !learned(i)});
   app.innerHTML=bar()+(t.krok?'<a class="back" href="#/krok">← База КРОК</a>':'<a class="back" href="#/">← Усі теми</a>')+'<h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+(t.krok?' · база КРОК · ':' у форматі КРОК 1 · ')+esc(t.code)+'</p>'+
-   '<div class="hero">'+svg(owl('s'))+'</div>'+
+   '<div class="hero">'+svg(owl('s'))+'</div>'+(S.run&&S.run.key==slug?resumeCard():'')+
    '<div class="stats"><div><b>'+a.filter(learned).length+'/'+a.length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
    (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div><h2>Тести зошита</h2>':'')+
    '<button class="btn" id="b1">'+(t.warm&&t.warm.length?'Одразу до тестів ('+a.length+')':'Усі тести теми')+'</button>'+
@@ -105,7 +105,16 @@ function topic(slug){
   if($('bwu'))$('bwu').onclick=function(){start(t.warm.map(function(q){return q.id}),'Розминка · '+t.title,slug,false,false,true)};
   $('b1').onclick=function(){start(a,t.title,slug,false,true)};$('b2').onclick=function(){start(W,t.title,slug,false,false)};$('b3').onclick=function(){start(F,t.title,slug,false,false)};
 }
-function start(list,label,key,mixed,full,warm){if(!list.length)return;R={q:shuffle(list),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm};window.scrollTo(0,0);next()}
+function start(list,label,key,mixed,full,warm){if(!list.length)return;R={q:shuffle(list),all:list.slice(),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm};keepRun();window.scrollTo(0,0);next()}
+// 19.11: незавершений тест не губиться — зберігається після кожної відповіді (у браузері й на сервері разом із прогресом)
+function keepRun(){S.rt=Date.now();if(R){S.run=JSON.parse(JSON.stringify(R))}else delete S.run;save()}
+function runOk(r){return r&&r.q&&r.q.length&&r.all&&r.q.every(function(id){return BY[id]})}
+function resume(){var r=S.run;if(!runOk(r))return;R=JSON.parse(JSON.stringify(r));window.scrollTo(0,0);next()}
+function restart(){var r=S.run;if(!r)return;start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm)}
+function resumeCard(){var r=S.run;if(!runOk(r))return '';
+  return '<div class="card resume"><b>⏸ Незавершений тест: '+esc(r.label)+'</b><i>Зараховано '+r.done+' з '+r.n+(r.miss.length?' · помилок: '+r.miss.length:'')+' — можна продовжити з того самого місця</i>'+
+   '<div class="row"><button class="btn sm" id="brs">Продовжити</button><button class="btn sm alt" id="brn">Почати спочатку</button></div></div>'}
+function bindResume(){if($('brs'))$('brs').onclick=resume;if($('brn'))$('brn').onclick=restart}
 function next(){
   if(!R)return home();if(!R.q.length)return finish();if(!R.warm&&locked())return gate();GSHOW=0;
   var id=R.q[0],t=BY[id],ord=shuffle(t.o.map(function(_,k){return k}));window.scrollTo(0,0);
@@ -118,7 +127,7 @@ function next(){
     bs.forEach(function(x){var kk=+x.dataset.k;x.classList.add(kk==t.k?'ok':x==b?'bad':'dim')});
     var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.warm?'warm':R.mixed?'mix':'topic');
     R.q.shift();if(ok){s.c++;s.s++;R.done++}else{s.w++;s.s=0;R.q.splice(Math.min(3,R.q.length),0,id);if(R.miss.indexOf(id)<0)R.miss.push(id)}
-    save();
+    keepRun();
     $('fb').innerHTML=krok(ok,t)+'<button class="btn" id="nx">Далі →</button>';
     var fbx=$('fb');if(fbx.scrollIntoView)setTimeout(function(){fbx.scrollIntoView({behavior:'smooth',block:'nearest'})},60);
     try{if(TGW&&TGW.HapticFeedback)TGW.HapticFeedback.notificationOccurred(ok?'success':'error')}catch(e){}
@@ -127,7 +136,7 @@ function next(){
   document.onkeydown=function(e){var n=parseInt(e.key,10);if(n>=1&&n<=bs.length)pick(bs[n-1]);else if(e.key=='Enter'&&$('nx'))$('nx').click()};
 }
 function finish(){
-  var r=R;R=null;document.onkeydown=null;
+  var r=R;R=null;delete S.run;S.rt=Date.now();document.onkeydown=null;
   var k=Object.keys(r.first),ok=k.filter(function(i){return r.first[i]}).length,perfect=ok==r.n;
   if(!r.warm){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
   var TP=TOPICS.filter(function(x){return x.slug==r.key})[0];
@@ -173,7 +182,7 @@ function gate(){GSHOW=1;window.scrollTo(0,0);var tg='<svg viewBox="0 0 24 24" wi
   if($('g1'))$('g1').onclick=function(){openTg(BOTAPP+(S.lastSrc||'web'))};
   $('g2').onclick=function(){openTg('https://t.me/easyfarmmed')};
   if($('g3'))$('g3').onclick=function(){S.subOk=0;subCheck(after)}}
-function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;if(/^#\/krok/.test(location.hash))return krokHome();var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
+function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;if(/^#\/krok/.test(location.hash))krokHome();else{var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}bindResume()}
 window.addEventListener('hashchange',route);route();subCheck(after);
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
   var cdone=0;function useCode(v){if(cdone)return;cdone=1;if(v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();

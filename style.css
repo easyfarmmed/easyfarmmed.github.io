@@ -18,7 +18,7 @@ p.lead{color:var(--mut);font-size:15px;line-height:1.4;margin:0 0 10px}
 .mix .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .btn{display:block;width:100%;border:0;border-radius:16px;padding:15px 16px;font:800 17px Nunito,system-ui,sans-serif;cursor:pointer;margin:0 0 10px;background:var(--teal);color:#fff;text-align:center;text-decoration:none}
 .btn.sm{width:auto;flex:1;padding:12px 10px;font-size:15px;margin:0}
-.btn.share{background:#2aabee}.btn.alt{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.4;cursor:default}
+.card.resume{border:2px solid var(--coral)}.btn.share{background:#2aabee}.btn.alt{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.4;cursor:default}
 .back{color:var(--teal);text-decoration:none;font-size:14px;margin:4px 0}.back.sm{display:block;text-align:center;color:var(--mut);margin-top:6px}
 .bar{height:8px;background:var(--line);border-radius:9px;margin:6px 0 4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--teal);transition:width .3s}
 .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)}
