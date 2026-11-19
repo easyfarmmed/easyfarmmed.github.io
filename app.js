@@ -60,12 +60,14 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp
 function $(id){return document.getElementById(id)}
 var app=$('app'),R=null;
 function bar(){return '<div class="top"><a class="brand" href="#/">ФАРМА ЗА ХВИЛИНУ</a><a class="tg" href="https://t.me/easyfarmmed" target="_blank" rel="noopener">✈ '+HANDLE+'</a></div>'}
-function prog(a){var n=a.filter(learned).length;return '<div class="pb"><i style="width:'+(a.length?100*n/a.length:0)+'%"></i></div><span class="pn">'+n+' / '+a.length+' вивчено</span>'}
+// 19.11: «правильно» = остання відповідь правильна (росте одразу під час проходження); «вивчено» = 2 правильні поспіль
+function known(id){return (S.st[id]||{}).s>=1}
+function prog(a){var n=a.filter(known).length,l=a.filter(learned).length;return '<div class="pb"><i style="width:'+(a.length?100*n/a.length:0)+'%"></i></div><span class="pn">'+n+' / '+a.length+' правильно'+(l?' · '+l+' вивчено':'')+'</span>'}
 function plural(n,a,b,c){var d=n%10,h=n%100;return n+' '+(d==1&&h!=11?a:d>=2&&d<=4&&(h<12||h>14)?b:c)}
 function home(){
   var A=allIds(),W=A.filter(wrong),runs=0;Object.keys(S.runs).forEach(function(k){runs+=S.runs[k]});
   app.innerHTML=bar()+'<h1>Тренажери <em>тестів</em></h1><p class="lead">Тести до робочого зошита з фармакології — щотижня нова тема. Помилки повертаються, доки не запам\'ятаєш; питання вивчене після 2 правильних відповідей поспіль.</p>'+
-   '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+WB().length+'</b>'+plural(WB().length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
+   '<div class="stats"><div><b>'+A.filter(known).length+'/'+A.length+'</b>правильно</div><div><b>'+WB().length+'</b>'+plural(WB().length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
    (GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+resumeCard()+'<h2>Теми зошита</h2>'+WB().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
    '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
@@ -82,7 +84,7 @@ function home(){
 function krokHome(){
   var L=KB(),A=allIds(L),W=A.filter(wrong);
   app.innerHTML=bar()+'<a class="back" href="#/">← На головну</a><h1>База <em>КРОК</em></h1><p class="lead">Тести КРОК 1 з фармакології за темами — зокрема ті, яких ще не було на заняттях. Базу поступово доповнюємо.</p>'+resumeCard()+
-   '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+L.length+'</b>'+plural(L.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+W.length+'</b>помилок</div></div>'+
+   '<div class="stats"><div><b>'+A.filter(known).length+'/'+A.length+'</b>правильно</div><div><b>'+L.length+'</b>'+plural(L.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+W.length+'</b>помилок</div></div>'+
    '<div class="card mix"><b>🎲 Мікс бази КРОК</b><i>тести з усіх тем бази упереміш</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+'</div></div>'+
    '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з бази ('+W.length+')</button>'+
@@ -96,7 +98,7 @@ function topic(slug){
   var a=ids(t),W=a.filter(wrong),F=a.filter(function(i){return !learned(i)});
   app.innerHTML=bar()+(t.krok?'<a class="back" href="#/krok">← База КРОК</a>':'<a class="back" href="#/">← Усі теми</a>')+'<h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+(t.krok?' · база КРОК · ':' у форматі КРОК 1 · ')+esc(t.code)+'</p>'+
    '<div class="hero">'+svg(owl('s'))+'</div>'+(S.run&&S.run.key==slug?resumeCard():'')+
-   '<div class="stats"><div><b>'+a.filter(learned).length+'/'+a.length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
+   '<div class="stats"><div><b>'+a.filter(known).length+'/'+a.length+'</b>правильно</div><div><b>'+a.filter(learned).length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
    (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div><h2>Тести зошита</h2>':'')+
    '<button class="btn" id="b1">'+(t.warm&&t.warm.length?'Одразу до тестів ('+a.length+')':'Усі тести теми')+'</button>'+
    '<button class="btn alt" id="b2"'+(W.length?'':' disabled')+'>Лише помилки ('+W.length+')</button>'+

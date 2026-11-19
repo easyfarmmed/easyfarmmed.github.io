@@ -10,7 +10,7 @@ h1{font-family:Unbounded,sans-serif;font-size:26px;line-height:1.15;margin:8px 0
 h2{font-family:Unbounded,sans-serif;font-size:16px;margin:18px 0 8px}
 p.lead{color:var(--mut);font-size:15px;line-height:1.4;margin:0 0 10px}
 .hero{display:flex;justify-content:center;margin:4px 0}.hero svg{width:140px;height:140px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px;margin:6px 0 10px}
 .stats div{background:var(--card);border-radius:14px;padding:10px 6px;text-align:center;font-size:12px;color:var(--mut)}.stats b{display:block;font-size:22px;color:var(--ink)}
 .card{display:block;background:var(--card);border-radius:16px;padding:14px 16px;margin-bottom:10px;text-decoration:none;color:var(--ink)}
 .card .code{color:var(--coral);font-size:12px}.card b{display:block;font-size:20px;margin:2px 0}.card i{font-style:normal;color:var(--teal);font-size:14px}
