@@ -23,20 +23,24 @@ function keepQ(){try{localStorage.setItem('efm-q',JSON.stringify(PQ.slice(-500))
 function flush(){if(!ON||!PQ.length||flush.busy)return;flush.busy=1;var b=PQ.splice(0,50);
   api('/rest/v1/answers',b,true).then(function(r){flush.busy=0;if(!r.ok)throw 0;keepQ();if(PQ.length)flush()}).catch(function(){flush.busy=0;PQ=b.concat(PQ);keepQ()})}
 function logAns(q,ok,first,mode){if(!ON)return;PQ.push({uid:S.uid,qid:q.id,topic:q.slug,ok:ok,first_try:first,mode:mode,src:S.lastSrc||S.src||null,tg:!!TGW});keepQ();flush()}
-var pt=null;function pushProg(){if(!ON||!S.code)return;clearTimeout(pt);pt=setTimeout(function(){api('/rest/v1/rpc/save_progress',{p_code:S.code,p_data:{st:S.st,best:S.best,runs:S.runs}}).catch(function(){})},1200)}
+// 19.11: прогрес — компактно (лише питання з відповідями), затримка 0,5 с, а при закритті/згортанні — одразу (keepalive)
+function progData(){var st={};Object.keys(S.st).forEach(function(k){var x=S.st[k];if(x&&(x.c+x.w)>0)st[k]=x});return {st:st,best:S.best,runs:S.runs}}
+var pt=null,pdirty=0;function pushNow(keep){if(!ON||!S.code||!pdirty)return;clearTimeout(pt);pdirty=0;
+  api('/rest/v1/rpc/save_progress',{p_code:S.code,p_data:progData()},keep).then(function(r){if(!r.ok)pdirty=1}).catch(function(){pdirty=1})}
+function pushProg(){if(!ON||!S.code)return;pdirty=1;clearTimeout(pt);pt=setTimeout(function(){pushNow(false)},500)}
 function merge(d){if(!d)return;Object.keys(d.st||{}).forEach(function(id){var a=S.st[id],b=d.st[id];if(!a||(b.c+b.w)>(a.c+a.w))S.st[id]=b});
   Object.keys(d.best||{}).forEach(function(k){S.best[k]=Math.max(S.best[k]||0,d.best[k])});Object.keys(d.runs||{}).forEach(function(k){S.runs[k]=Math.max(S.runs[k]||0,d.runs[k])})}
 function pull(cb){if(!ON||!S.code)return cb&&cb(false);api('/rest/v1/rpc/load_progress',{p_code:S.code}).then(function(r){return r.ok?r.json():null})
   .then(function(d){merge(d);save();pushProg();cb&&cb(!!d)}).catch(function(){cb&&cb(false)})}
 function syncCard(){if(!ON)return '';
-  if(TGW)return '<div class="note">✓ Прогрес зберігається у твоєму Telegram — відкривай тренажер з будь-якого пристрою.</div>';
+  if(TGW)return '<div class="card sync"><b>✓ Прогрес зберігається у твоєму Telegram</b><i>Відкривай тренажер з будь-якого пристрою.'+(S.code?' Твій код: <span class="c2">'+fmt(S.code)+'</span> — ним можна відкрити прогрес і в браузері.':'')+'</i>'+(S.code?'<div class="row"><button class="btn sm alt" id="cpy">Скопіювати код</button><button class="btn sm alt" id="ent">Ввести код з браузера</button></div>':'')+'</div>';
   if(S.code)return '<div class="card sync"><b>💾 Прогрес збережено</b><i>Твій код: <span class="c2">'+fmt(S.code)+'</span> — введи його на іншому пристрої</i><div class="row"><button class="btn sm alt" id="cpy">Скопіювати код</button><button class="btn sm alt" id="ent">Ввести інший</button></div></div>';
   return '<div class="card sync"><b>💾 Зберегти прогрес між пристроями</b><i>Без реєстрації: отримай код і введи його на телефоні чи ноутбуці</i><div class="row"><button class="btn sm" id="gen">Отримати код</button><button class="btn sm alt" id="ent">У мене є код</button></div></div>'}
 function bindSync(){var g=$('gen'),e=$('ent'),c=$('cpy');
   if(g)g.onclick=function(){S.code=rnd(12,B32);save();pushProg();home()};
   if(c)c.onclick=function(){try{navigator.clipboard.writeText(fmt(S.code)).then(function(){c.textContent='Скопійовано ✓'})}catch(x){prompt('Твій код:',fmt(S.code))}};
   if(e)e.onclick=function(){var v=(prompt('Введи код (12 символів):')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!v)return;if(!/^[A-Z2-9]{12}$/.test(v))return alert('Код має 12 символів (літери й цифри 2–9).');
-    S.code=v;save();pull(function(ok){alert(ok?'Прогрес завантажено ✓':'За цим кодом ще нічого немає — тепер прогрес зберігатиметься під ним.');home()})}}
+    S.code=v;save();if(TGW)try{TGW.CloudStorage.setItem('efm_code',v,function(){})}catch(x){}pull(function(ok){alert(ok?'Прогрес завантажено ✓':'За цим кодом ще нічого немає — тепер прогрес зберігатиметься під ним.');home()})}}
 // ---- Пані КРОК (сова) реагує на відповідь (18.11, запит користувача) ----
 var PRAISE=['Так! Пані КРОК задоволена','Правильно! Так тримати','Бездоганно!','Саме так!'],SCOLD=['Ой, ні!','Не цього разу…','Пастка спрацювала!','Ні-ні-ні!'];
 function owlFace(ok){if(ok)return owl('h');
@@ -172,7 +176,13 @@ function gate(){GSHOW=1;window.scrollTo(0,0);var tg='<svg viewBox="0 0 24 24" wi
 function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;if(/^#\/krok/.test(location.hash))return krokHome();var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
 window.addEventListener('hashchange',route);route();subCheck(after);
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
-  try{TGW.CloudStorage.getItem('efm_code',function(err,v){if(!err&&v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
-    TGW.CloudStorage.setItem('efm_code',S.code,function(){});pull(function(){if(!R)route()})})}catch(e){}}
+  var cdone=0;function useCode(v){if(cdone)return;cdone=1;if(v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
+    try{TGW.CloudStorage.setItem('efm_code',S.code,function(){})}catch(e){}pull(function(){if(!R&&!GSHOW)route()})}
+  var cs=TGW.CloudStorage&&(!TGW.isVersionAtLeast||TGW.isVersionAtLeast('6.9'));
+  if(cs){try{TGW.CloudStorage.getItem('efm_code',function(err,v){useCode(err?null:v)})}catch(e){useCode(null)}setTimeout(function(){useCode(null)},4000)}
+  else useCode(null)}
 else if(S.code)pull(function(){if(!R)route()});
-flush();document.addEventListener('visibilitychange',function(){if(document.visibilityState=='hidden')flush()});
+flush();document.addEventListener('visibilitychange',function(){if(document.visibilityState=='hidden'){flush();pushNow(true)}});
+window.addEventListener('pagehide',function(){flush();pushNow(true)});
+if(TGW&&TGW.onEvent)try{TGW.onEvent('viewportChanged',function(){pushNow(true)})}catch(e){}
+setInterval(function(){pushNow(false)},15000);   // страховка: незбережене — раз на 15 с
