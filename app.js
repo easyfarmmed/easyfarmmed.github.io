@@ -44,11 +44,12 @@ function owlFace(ok){if(ok)return owl('h');
     '<path d="M86,-40q14,22 0,30q-14,-8 0,-30z" fill="#7cc4f2"/>'}                                                                                 // крапля поту
 function krok(ok,t){var m=(ok?PRAISE:SCOLD)[Math.floor(Math.random()*4)];
   return '<div class="krok '+(ok?'good':'bad')+'"><div class="kowl">'+svg(owlFace(ok),'-170 -210 340 400')+(ok?'<i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i>':'')+'</div>'+
-    '<div class="kbub"><small>Пані КРОК</small><b>'+m+'</b>'+(ok?'':'<span class="kr">Правильна відповідь: '+esc(t.o[t.k])+'</span>')+'<p>'+esc(t.x)+'</p></div></div>'}
+    '<div class="kbub"><small>Пані КРОК</small><b>'+m+'</b>'+(ok?'':'<span class="kr">Правильна відповідь: '+esc(t.o[t.k])+'</span>')+(t.x?'<p>'+esc(t.x)+'</p>':'')+'</div></div>'}
 function st(id){return S.st[id]||(S.st[id]={c:0,w:0,s:0})}
 function learned(id){return (S.st[id]||{}).s>=2}function wrong(id){var s=S.st[id];return !!s&&s.w>0&&!learned(id)}
 function ids(t){return t.tests.map(function(q){return q.id})}
-function allIds(){var a=[];TOPICS.forEach(function(t){a=a.concat(ids(t))});return a}
+function WB(){return TOPICS.filter(function(t){return !t.krok})}function KB(){return TOPICS.filter(function(t){return t.krok})}
+function allIds(L){var a=[];(L||WB()).forEach(function(t){a=a.concat(ids(t))});return a}
 function svg(f,vb){return '<svg viewBox="'+(vb||'-200 -190 400 380')+'">'+f+'</svg>'}
 function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -60,12 +61,13 @@ function plural(n,a,b,c){var d=n%10,h=n%100;return n+' '+(d==1&&h!=11?a:d>=2&&d<
 function home(){
   var A=allIds(),W=A.filter(wrong),runs=0;Object.keys(S.runs).forEach(function(k){runs+=S.runs[k]});
   app.innerHTML=bar()+'<h1>Тренажери <em>тестів</em></h1><p class="lead">Тести до робочого зошита з фармакології — щотижня нова тема. Помилки повертаються, доки не запам\'ятаєш; питання вивчене після 2 правильних відповідей поспіль.</p>'+
-   '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+TOPICS.length+'</b>'+plural(TOPICS.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
-   (GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+'<h2>Теми</h2>'+TOPICS.slice().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
+   '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+WB().length+'</b>'+plural(WB().length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
+   (GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+'<h2>Теми зошита</h2>'+WB().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
    '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
    [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
    '<button class="btn sm" data-n="all">Усі '+A.length+'</button></div></div>'+
    '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з усіх тем ('+W.length+')</button>'+
+   (KB().length?'<h2>База КРОК</h2><a class="card kb" href="#/krok"><span class="code">КРОК</span><b>📚 База КРОК</b><i>'+plural(allIds(KB()).length,'тест','тести','тестів')+' · '+plural(KB().length,'тема','теми','тем')+' — у тому числі теми, які ще не проходили →</i>'+prog(allIds(KB()))+'</a>':'')+
    '<button class="btn share" id="bsh">📤 Поділитись тренажером з одногрупниками</button>'+syncCard()+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація · '+(ON?'анонімна статистика відповідей (без імен) допомагає нам робити кращі ролики':'прогрес зберігається лише в цьому браузері')+'</div>';
   bindSync();
@@ -73,10 +75,22 @@ function home(){
   $('bw').onclick=function(){start(W,'Помилки з усіх тем','mix',true,false)};
   $('bsh').onclick=function(){share('Тренажер тестів КРОК 1 з фармакології до робочого зошита: помилки повертаються, доки не запам\'ятаєш. Безкоштовно:','home')};
 }
+function krokHome(){
+  var L=KB(),A=allIds(L),W=A.filter(wrong);
+  app.innerHTML=bar()+'<a class="back" href="#/">← На головну</a><h1>База <em>КРОК</em></h1><p class="lead">Тести КРОК 1 з фармакології за темами — зокрема ті, яких ще не було на заняттях. Базу поступово доповнюємо.</p>'+
+   '<div class="stats"><div><b>'+A.filter(learned).length+'/'+A.length+'</b>вивчено</div><div><b>'+L.length+'</b>'+plural(L.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+W.length+'</b>помилок</div></div>'+
+   '<div class="card mix"><b>🎲 Мікс бази КРОК</b><i>тести з усіх тем бази упереміш</i><div class="row">'+
+   [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+'</div></div>'+
+   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з бази ('+W.length+')</button>'+
+   '<h2>Теми</h2>'+L.map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' →</i>'+prog(a)+'</a>'}).join('')+
+   '<div class="foot">Тести КРОК — дослівно; пояснень до них поки немає. Навчальний матеріал, не клінічна рекомендація.</div>';
+  app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){start(shuffle(A).slice(0,+b.dataset.n),'Мікс бази КРОК','krokmix',true,false)}});
+  $('bw').onclick=function(){start(W,'Помилки з бази КРОК','krokmix',true,false)};
+}
 function topic(slug){
   var t=TOPICS.filter(function(x){return x.slug==slug})[0];if(!t)return home();
   var a=ids(t),W=a.filter(wrong),F=a.filter(function(i){return !learned(i)});
-  app.innerHTML=bar()+'<a class="back" href="#/">← Усі теми</a><h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 · '+esc(t.code)+'</p>'+
+  app.innerHTML=bar()+(t.krok?'<a class="back" href="#/krok">← База КРОК</a>':'<a class="back" href="#/">← Усі теми</a>')+'<h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+(t.krok?' · база КРОК · ':' у форматі КРОК 1 · ')+esc(t.code)+'</p>'+
    '<div class="hero">'+svg(owl('s'))+'</div>'+
    '<div class="stats"><div><b>'+a.filter(learned).length+'/'+a.length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
    (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div><h2>Тести зошита</h2>':'')+
@@ -114,13 +128,13 @@ function finish(){
   if(!r.warm){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
   var TP=TOPICS.filter(function(x){return x.slug==r.key})[0];
   var shTxt=r.warm?'Розім\'явся перед тестами КРОК 1 з фармакології («'+(TP?TP.title:'')+'») — '+ok+' з '+r.n+'. Тренажер до робочого зошита, безкоштовно:':'Пройшов тренажер «'+r.label+'»: '+ok+' з '+r.n+' з першої спроби 💪 Пані КРОК 0 : '+ok+' Я. Спробуй і ти — тести КРОК 1 до робочого зошита з фармакології:';
-  var back=r.key=='mix'?'#/':'#/t/'+r.key;
+  var back=r.key=='mix'?'#/':r.key=='krokmix'?'#/krok':'#/t/'+r.key;
   app.innerHTML=bar()+'<h1>'+(perfect?'Ідеально!':'Зараховано всі '+r.n)+'</h1><p class="lead">'+esc(r.label)+' · з першої спроби: <b>'+ok+' з '+r.n+'</b> ('+Math.round(100*ok/r.n)+'%).'+(perfect?' Пані КРОК тебе не підловить.':' Помилки нижче — пройди їх ще раз.')+'</p>'+
    '<div class="hero">'+svg(perfect?capyDoc('h'):racoon('s'),perfect?'-200 -150 360 300':undefined)+'</div>'+
    (r.miss.length?'<ul class="list">'+r.miss.map(function(i){var t=BY[i];return '<li>'+(r.mixed?'<small>'+esc(t.topic)+'</small>':'')+esc(t.q)+'<br><b>'+esc(t.o[t.k])+'</b></li>'}).join('')+'</ul>':'')+
    (r.warm&&TP?'<button class="btn" id="bgo">Тепер — тести зошита ('+TP.tests.length+') →</button>':'')+
    '<button class="btn'+(r.warm?' alt':'')+'" id="b1">'+(r.warm?'Розминка ще раз':'Ще раз')+'</button>'+(r.miss.length&&!r.warm?'<button class="btn alt" id="b2">Лише помилки ('+r.miss.length+')</button>':'')+
-   (r.key=='mix'?'':'<a class="btn alt" href="'+back+'">До теми</a>')+'<a class="btn alt" href="#/">Усі теми</a>'+
+   (r.key=='mix'?'':'<a class="btn alt" href="'+back+'">'+(r.key=='krokmix'?'До бази КРОК':'До теми')+'</a>')+'<a class="btn alt" href="#/">Усі теми</a>'+
    '<button class="btn share" id="bsh">📤 Поділитись з одногрупниками</button>'+
    '<a class="btn alt" href="https://t.me/easyfarmmed" target="_blank" rel="noopener">Розбори й конспекти — Telegram '+HANDLE+'</a>';
   $('bsh').onclick=function(){share(shTxt,'res')};if($('bgo'))$('bgo').onclick=function(){start(ids(TP),TP.title,TP.slug,false,true)};
@@ -155,7 +169,7 @@ function gate(){GSHOW=1;window.scrollTo(0,0);var tg='<svg viewBox="0 0 24 24" wi
   if($('g1'))$('g1').onclick=function(){openTg(BOTAPP+(S.lastSrc||'web'))};
   $('g2').onclick=function(){openTg('https://t.me/easyfarmmed')};
   if($('g3'))$('g3').onclick=function(){S.subOk=0;subCheck(after)}}
-function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
+function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;if(/^#\/krok/.test(location.hash))return krokHome();var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}
 window.addEventListener('hashchange',route);route();subCheck(after);
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
   try{TGW.CloudStorage.getItem('efm_code',function(err,v){if(!err&&v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
