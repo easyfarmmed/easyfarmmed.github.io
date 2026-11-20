@@ -113,17 +113,20 @@ function keepRun(){S.rt=Date.now();if(R){S.run=JSON.parse(JSON.stringify(R))}els
 function runOk(r){return r&&r.q&&r.q.length&&r.all&&r.q.every(function(id){return BY[id]})}
 function resume(){var r=S.run;if(!runOk(r))return;R=JSON.parse(JSON.stringify(r));window.scrollTo(0,0);next()}
 function restart(){var r=S.run;if(!r)return;start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm)}
-function resumeCard(){var r=S.run;if(!runOk(r))return '';
-  return '<div class="card resume"><b>⏸ Незавершений тест: '+esc(r.label)+'</b><i>Зараховано '+r.done+' з '+r.n+(r.miss.length?' · помилок: '+r.miss.length:'')+' — можна продовжити з того самого місця</i>'+
-   '<div class="row"><button class="btn sm" id="brs">Продовжити</button><button class="btn sm alt" id="brn">Почати спочатку</button></div></div>'}
-function bindResume(){if($('brs'))$('brs').onclick=resume;if($('brn'))$('brn').onclick=restart}
+// 20.11: тонка смужка замість великої картки (користувач: «маячить в очі»); ✕ — скинути незавершений тест
+function resumeCard(){var r=S.run;if(!runOk(r))return '';var a=Object.keys(r.first||{}).length;
+  return '<div class="resume"><span class="ri">⏸</span><span class="rt"><b>'+esc(r.label)+'</b><i>не завершено · '+r.done+'/'+r.n+'</i></span>'+
+   '<button class="btn sm" id="brs">Продовжити</button><button class="rx" id="brn" aria-label="Скинути незавершений тест" title="Скинути">✕</button></div>'}
+function dropRun(){delete S.run;S.rt=Date.now();save();route()}
+function bindResume(){if($('brs'))$('brs').onclick=resume;if($('brn'))$('brn').onclick=dropRun}
 function next(){
   if(!R)return home();if(!R.q.length)return finish();if(!R.warm&&locked())return gate();GSHOW=0;
   var id=R.q[0],t=BY[id],ord=shuffle(t.o.map(function(_,k){return k}));window.scrollTo(0,0);
-  app.innerHTML=bar()+'<div class="bar"><i style="width:'+(100*R.done/R.n)+'%"></i></div><div class="meta"><span>'+R.done+' з '+R.n+' зараховано</span><span>у черзі: '+R.q.length+'</span></div>'+
+  app.innerHTML=bar()+'<div class="bar"><i style="width:'+(100*R.done/R.n)+'%"></i></div><div class="meta"><span>'+R.done+' з '+R.n+' зараховано</span><span>залишилось: '+R.q.length+'</span></div>'+
    '<div class="q"><small>'+(R.mixed?esc(t.topic).toUpperCase()+' · ':'')+(R.warm?'РОЗМИНКА':'ТЕСТ')+(R.first[id]===false?' · ЩЕ РАЗ':'')+'</small>'+esc(t.q)+'</div>'+
    ord.map(function(k,j){return '<button class="opt" data-k="'+k+'"><i>'+L[j]+'</i><span>'+esc(t.o[k])+'</span></button>'}).join('')+'<div id="fb"></div>'+
-   '<a class="back sm" href="#/">✕ Завершити</a>';
+   '<button class="endb" id="bend">'+(Object.keys(R.first).length?'⏹ Завершити тест і побачити результат':'✕ Вийти')+'</button>';
+  $('bend').onclick=function(){finish(true)};
   var bs=app.querySelectorAll('.opt'),ans=false;
   function pick(b){if(ans)return;ans=true;var k=+b.dataset.k,ok=k==t.k,s=st(id);
     bs.forEach(function(x){var kk=+x.dataset.k;x.classList.add(kk==t.k?'ok':x==b?'bad':'dim')});
@@ -137,24 +140,30 @@ function next(){
   bs.forEach(function(b){b.onclick=function(){pick(b)}});
   document.onkeydown=function(e){var n=parseInt(e.key,10);if(n>=1&&n<=bs.length)pick(bs[n-1]);else if(e.key=='Enter'&&$('nx'))$('nx').click()};
 }
-function finish(){
+function finish(early){
   var r=R;R=null;delete S.run;S.rt=Date.now();document.onkeydown=null;
-  var k=Object.keys(r.first),ok=k.filter(function(i){return r.first[i]}).length,perfect=ok==r.n;
-  if(!r.warm){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
-  var TP=TOPICS.filter(function(x){return x.slug==r.key})[0];
-  var shTxt=r.warm?'Розім\'явся перед тестами КРОК 1 з фармакології («'+(TP?TP.title:'')+'») — '+ok+' з '+r.n+'. Тренажер до робочого зошита, безкоштовно:':'Пройшов тренажер «'+r.label+'»: '+ok+' з '+r.n+' з першої спроби 💪 Пані КРОК 0 : '+ok+' Я. Спробуй і ти — тести КРОК 1 до робочого зошита з фармакології:';
+  var k=Object.keys(r.first),a=k.length,ok=k.filter(function(i){return r.first[i]}).length,done=!r.q.length,perfect=done&&ok==r.n;
   var back=r.key=='mix'?'#/':r.key=='krokmix'?'#/krok':'#/t/'+r.key;
-  app.innerHTML=bar()+'<h1>'+(perfect?'Ідеально!':'Зараховано всі '+r.n)+'</h1><p class="lead">'+esc(r.label)+' · з першої спроби: <b>'+ok+' з '+r.n+'</b> ('+Math.round(100*ok/r.n)+'%).'+(perfect?' Пані КРОК тебе не підловить.':' Помилки нижче — пройди їх ще раз.')+'</p>'+
-   '<div class="hero">'+svg(perfect?capyDoc('h'):racoon('s'),perfect?'-200 -150 360 300':undefined)+'</div>'+
-   (r.miss.length?'<ul class="list">'+r.miss.map(function(i){var t=BY[i];return '<li>'+(r.mixed?'<small>'+esc(t.topic)+'</small>':'')+esc(t.q)+'<br><b>'+esc(t.o[t.k])+'</b></li>'}).join('')+'</ul>':'')+
+  if(!a){save();go(back);return}   // ще не відповідав — просто вийти
+  if(!r.warm&&done){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
+  var TP=TOPICS.filter(function(x){return x.slug==r.key})[0],pct=Math.round(100*ok/a),col=pct>=80?'var(--teal)':pct>=50?'#f2a33a':'var(--red)';
+  var shTxt=r.warm?'Розім\'явся перед тестами КРОК 1 з фармакології («'+(TP?TP.title:'')+'») — '+pct+'%. Тренажер до робочого зошита, безкоштовно:':'Пройшов тренажер «'+r.label+'»: '+pct+'% з першої спроби ('+ok+' з '+a+') 💪 Пані КРОК 0 : '+ok+' Я. Спробуй і ти — тести КРОК 1 до робочого зошита з фармакології:';
+  app.innerHTML=bar()+'<h1>'+(perfect?'Ідеально!':done?'Зараховано всі '+r.n:'Тест <em>завершено</em>')+'</h1><p class="lead">'+esc(r.label)+'</p>'+
+   '<div class="score"><div class="ring" style="--p:'+pct+';--c:'+col+'"><b>'+pct+'%</b></div><div class="sc"><b>'+ok+' з '+a+'</b>правильно з першої спроби'+(done?'':'<br>відповіді на '+a+' з '+r.n+' питань')+'</div></div>'+
+   '<p class="lead">'+(perfect?'Пані КРОК тебе не підловить.':pct>=80?'Дуже добре! Помилки нижче — пройди їх ще раз.':pct>=50?'Непогано. Помилки нижче — пройди їх ще раз, і відсоток виросте.':'Пані КРОК поки веде — пройди помилки ще раз, вони повертаються, доки не запам\'ятаєш.')+'</p>'+
    (r.warm&&TP?'<button class="btn" id="bgo">Тепер — тести зошита ('+TP.tests.length+') →</button>':'')+
-   '<button class="btn'+(r.warm?' alt':'')+'" id="b1">'+(r.warm?'Розминка ще раз':'Ще раз')+'</button>'+(r.miss.length&&!r.warm?'<button class="btn alt" id="b2">Лише помилки ('+r.miss.length+')</button>':'')+
-   (r.key=='mix'?'':'<a class="btn alt" href="'+back+'">'+(r.key=='krokmix'?'До бази КРОК':'До теми')+'</a>')+'<a class="btn alt" href="#/">Усі теми</a>'+
-   '<button class="btn share" id="bsh">📤 Поділитись з одногрупниками</button>'+
+   (r.miss.length&&!r.warm?'<button class="btn" id="b2">Пройти помилки ('+r.miss.length+')</button>':'')+
+   '<button class="btn'+(r.warm||(r.miss.length&&!r.warm)?' alt':'')+'" id="b1">'+(r.warm?'Розминка ще раз':'Пройти тест ще раз')+'</button>'+
+   '<div class="row nav">'+(r.key=='mix'?'':'<button class="btn sm alt" data-go="'+back+'">'+(r.key=='krokmix'?'До бази КРОК':'До теми')+'</button>')+'<button class="btn sm alt" data-go="#/">Усі теми</button></div>'+
+   '<button class="btn share" id="bsh">📤 Поділитись результатом</button>'+
+   (r.miss.length?'<h2>Помилки — правильні відповіді</h2><ul class="list">'+r.miss.map(function(i){var t=BY[i];return '<li>'+(r.mixed?'<small>'+esc(t.topic)+'</small>':'')+esc(t.q)+'<br><b>✓ '+esc(t.o[t.k])+'</b></li>'}).join('')+'</ul>':'')+
    '<a class="btn alt" href="https://t.me/easyfarmmed" target="_blank" rel="noopener">Розбори й конспекти — Telegram '+HANDLE+'</a>';
   $('bsh').onclick=function(){share(shTxt,'res')};if($('bgo'))$('bgo').onclick=function(){start(ids(TP),TP.title,TP.slug,false,true)};
-  $('b1').onclick=function(){start(k,r.label,r.key,r.mixed,r.full,r.warm)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
+  app.querySelectorAll('[data-go]').forEach(function(x){x.onclick=function(){go(x.dataset.go)}});
+  $('b1').onclick=function(){start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
 }
+// 20.11: перехід, що спрацьовує й тоді, коли адреса вже така сама (посилання на той самий #… нічого не робило)
+function go(h){if((location.hash||'#/')==h)route();else location.hash=h}
 // ---- 19.11: «Поділитись» — пересилання в Telegram (у Mini App), системне меню телефона або Telegram у новій вкладці ----
 function share(text,tag){var url='https://t.me/EasyFarmMedBot?startapp=share-'+tag,tg='https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text);
   if(TGW&&TGW.openTelegramLink)return TGW.openTelegramLink(tg);
