@@ -46,9 +46,13 @@ var PRAISE=['Так! Пані КРОК задоволена','Правильно
 function owlFace(ok){if(ok)return owl('h');
   return owl('a')+'<path d="M-24,22l8,-7l8,7l8,-7l8,7l8,-7l8,7" stroke="'+C.ink+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'+   // скривилась
     '<path d="M86,-40q14,22 0,30q-14,-8 0,-30z" fill="#7cc4f2"/>'}                                                                                 // крапля поту
-function krok(ok,t){var m=(ok?PRAISE:SCOLD)[Math.floor(Math.random()*4)];
+// 20.11: розбір хибних варіантів (поле why у JSON зошита): у бульбашці — чому вибраний варіант хибний; нижче — розбір усіх варіантів
+function rozbir(t,ord,pk){if(!t.w)return '';
+  return '<details class="rz"><summary>🔍 Розбір усіх варіантів</summary>'+ord.map(function(k,j){var ok=k==t.k;
+    return '<div class="rzi '+(ok?'ok':'no')+(k==pk?' me':'')+'"><i>'+L[j]+'</i><span><b>'+(ok?'✓ ':'✗ ')+esc(t.o[k])+'</b>'+esc(ok?(t.x||'Правильна відповідь.'):(t.w[k]||''))+'</span></div>'}).join('')+'</details>'}
+function krok(ok,t,pk){var m=(ok?PRAISE:SCOLD)[Math.floor(Math.random()*4)],why=!ok&&t.w&&t.w[pk]?'<span class="kw">Чому не «'+esc(t.o[pk])+'»: '+esc(t.w[pk])+'</span>':'';
   return '<div class="krok '+(ok?'good':'bad')+'"><div class="kowl">'+svg(owlFace(ok),'-170 -210 340 400')+(ok?'<i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i>':'')+'</div>'+
-    '<div class="kbub"><small>Пані КРОК</small><b>'+m+'</b>'+(ok?'':'<span class="kr">Правильна відповідь: '+esc(t.o[t.k])+'</span>')+(t.x?'<p>'+esc(t.x)+'</p>':'')+'</div></div>'}
+    '<div class="kbub"><small>Пані КРОК</small><b>'+m+'</b>'+why+(ok?'':'<span class="kr">Правильна відповідь: '+esc(t.o[t.k])+'</span>')+(t.x?'<p>'+esc(t.x)+'</p>':'')+'</div></div>'}
 function st(id){return S.st[id]||(S.st[id]={c:0,w:0,s:0})}
 function learned(id){return (S.st[id]||{}).s>=2}function wrong(id){var s=S.st[id];return !!s&&s.w>0&&!learned(id)}
 function ids(t){return t.tests.map(function(q){return q.id})}
@@ -133,7 +137,7 @@ function next(){
     var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.warm?'warm':R.mixed?'mix':'topic');
     R.q.shift();if(ok){s.c++;s.s++;R.done++}else{s.w++;s.s=0;R.q.splice(Math.min(3,R.q.length),0,id);if(R.miss.indexOf(id)<0)R.miss.push(id)}
     keepRun();
-    $('fb').innerHTML=krok(ok,t)+'<button class="btn" id="nx">Далі →</button>';
+    $('fb').innerHTML=krok(ok,t,k)+rozbir(t,ord,k)+'<button class="btn" id="nx">Далі →</button>';$('bend').textContent='⏹ Завершити тест і побачити результат';
     var fbx=$('fb');if(fbx.scrollIntoView)setTimeout(function(){fbx.scrollIntoView({behavior:'smooth',block:'nearest'})},60);
     try{if(TGW&&TGW.HapticFeedback)TGW.HapticFeedback.notificationOccurred(ok?'success':'error')}catch(e){}
     $('nx').onclick=next}
