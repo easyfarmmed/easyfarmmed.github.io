@@ -145,7 +145,7 @@ function topic(slug){
   if($('bwu'))$('bwu').onclick=function(){start(t.warm.map(function(q){return q.id}),'Розминка · '+t.title,slug,false,false,true)};
   $('b1').onclick=function(){start(a,t.title,slug,false,true)};$('b2').onclick=function(){start(W,t.title,slug,false,false)};$('b3').onclick=function(){start(F,t.title,slug,false,false)};
 }
-function start(list,label,key,mixed,full,warm,cards){if(!list.length)return;logEv('start',{key:key,n:list.length,warm:!!warm});R={q:shuffle(list),all:list.slice(),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm,cards:!!cards};keepRun();window.scrollTo(0,0);next()}
+function start(list,label,key,mixed,full,warm,cards){if(!list.length)return;logEv('start',{key:key,n:list.length,warm:!!warm});var Q0=shuffle(list);if(start.first){var f0=start.first;Q0=[f0].concat(Q0.filter(function(x){return x!=f0}));start.first=null}R={q:Q0,all:list.slice(),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm,cards:!!cards};keepRun();window.scrollTo(0,0);next()}
 // 19.11: незавершений тест не губиться — зберігається після кожної відповіді (у браузері й на сервері разом із прогресом)
 function keepRun(){S.rt=Date.now();if(R){S.run=JSON.parse(JSON.stringify(R))}else delete S.run;save()}
 function runOk(r){return r&&r.q&&r.q.length&&r.all&&r.q.every(function(id){return BY[id]})}
@@ -253,6 +253,16 @@ function gate(){if(!GSHOW)logEv('gate',{used:used()});GSHOW=1;window.scrollTo(0,
   if($('g3'))$('g3').onclick=function(){logEv('gate_check');S.subOk=0;subCheck(after)}}
 function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;if(/^#\/krok/.test(location.hash))krokHome();else{var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}bindResume()}
 window.addEventListener('hashchange',route);if(!S.d0){S.d0=today();save()}route();subCheck(after);
+// схожі питання: за спільними словами (≥5 літер) у питанні й варіантах
+function wset(t){var o={};(t.q+' '+t.o.join(' ')).toLowerCase().split(/[^a-zа-яіїєґ0-9-]+/).forEach(function(w){if(w.length>=5)o[w.slice(0,7)]=1});return o}
+function near(id,pool,n){var a=wset(BY[id]);return shuffle(pool).map(function(x){var b=wset(BY[x]),k=0;for(var w in b)if(a[w])k++;return [k,x]}).sort(function(p,q){return q[0]-p[0]}).slice(0,n).map(function(p){return p[1]})}
+// 22.11: глибокі посилання з Telegram/браузера: startapp=q-<id питання> → це питання + ще 5 з теми; startapp=kartky → картки найновішої теми
+(function(){var sp='';try{sp=TGW?((TGW.initDataUnsafe||{}).start_param||''):((location.search.match(/[?&]src=([\w-]{1,64})/)||[])[1]||'')}catch(e){}
+  var m=sp.match(/^q-([\w-]{3,60})$/);
+  if(m&&BY[m[1]]){var id=m[1],tp=TOPICS.filter(function(t){return t.slug==BY[id].slug})[0],rest=near(id,ids(tp).filter(function(x){return x!=id}),5);
+    logEv('deep',{q:id});start.first=id;start([id].concat(rest),'Тест дня + ще '+rest.length,tp.krok?'krokmix':tp.slug,!!tp.krok,false);return}
+  if(/^kartky/.test(sp)){var T=WB().filter(function(t){return t.cards&&t.cards.length}),tc=T[T.length-1];
+    if(tc){logEv('deep',{cards:tc.slug});start(tc.cards.map(function(q){return q.id}),'Картки препаратів · '+tc.title,tc.slug,false,false,false,true)}}})();
 logEv('open',{h:(/^#\/[\w\/-]*$/.test(location.hash)?location.hash:'#/').slice(0,40),day:today()-S.d0,due:dueIds().length,streak:streak()});
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
   var cdone=0;function useCode(v){if(cdone)return;cdone=1;if(v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
