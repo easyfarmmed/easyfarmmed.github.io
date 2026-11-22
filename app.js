@@ -86,49 +86,62 @@ function bar(){return '<div class="top"><a class="brand" href="#/">ФАРМА З
 function known(id){return (S.st[id]||{}).s>=1}
 function prog(a){var n=a.filter(known).length,l=a.filter(learned).length;return '<div class="pb"><i style="width:'+(a.length?100*n/a.length:0)+'%"></i></div><span class="pn">'+n+' / '+a.length+' правильно'+(l?' · '+l+' вивчено':'')+'</span>'}
 function plural(n,a,b,c){var d=n%10,h=n%100;return n+' '+(d==1&&h!=11?a:d>=2&&d<=4&&(h<12||h>14)?b:c)}
+// 22.11: дизайн — одна головна дія на екрані, теми списком, інструменти плитками, режими теми — списком
+function ic(e){return '<span class="ic">'+e+'</span>'}
+function rowProg(a){var n=a.filter(known).length;return '<span class="ts"><span class="pb"><i style="width:'+(a.length?100*n/a.length:0)+'%"></i></span>'+n+'/'+a.length+'</span>'}
+function trow(t,sub){var a=ids(t);return '<a class="trow" href="#/t/'+t.slug+'"><span class="badge">'+esc(t.code)+'</span><span class="tm"><span class="tt">'+esc(t.title)+'</span>'+(sub?'<span class="tsub">'+sub+'</span>':'')+rowProg(a)+'</span><span class="chev">›</span></a>'}
+function todayCard(){var D=dueIds(),sk=streak(),td=(S.days||{})[today()]||0,r=runOk(S.run)?S.run:null,
+  any=Object.keys(S.st).some(function(k){var x=S.st[k];return x&&(x.c+x.w)>0}),nt=WB()[WB().length-1],main;
+  var top='<div class="td-top"><span class="chip">🔥 '+(sk?plural(sk,'день','дні','днів')+' поспіль':'Почни серію')+'</span><span class="goal">Сьогодні '+Math.min(td,GOAL)+' з '+GOAL+(td>=GOAL?' ✓':'')+'<span class="pb"><i style="width:'+Math.min(100,100*td/GOAL)+'%"></i></span></span></div>';
+  if(D.length)main='<div class="td-h">Повторення на сьогодні</div><div class="td-s">'+plural(D.length,'питання','питання','питань')+' — помилки й те, що пора освіжити</div><button class="btn" id="brep">Повторити ('+Math.min(D.length,20)+')</button>';
+  else if(r)main='<div class="td-h">Продовжити тест</div><div class="td-s">'+esc(r.label)+' · '+r.done+' з '+r.n+' зараховано</div><button class="btn" id="brs">Продовжити</button>';
+  else main='<div class="td-h">'+(any?'На сьогодні все повторено ✓':'Почни з теми тижня')+'</div><div class="td-s">'+esc(nt.title)+' · '+plural(ids(nt).length,'тест','тести','тестів')+(nt.cards&&nt.cards.length?' · '+plural(nt.cards.length,'картка','картки','карток'):'')+'</div><a class="btn'+(any?' alt':'')+'" href="#/t/'+nt.slug+'">Відкрити тему</a>';
+  var sub=r&&D.length?'<div class="td-sub"><span class="tm">⏸ Не завершено: <b>'+esc(r.label)+'</b> · '+r.done+'/'+r.n+'</span><button class="lnk" id="brs">Продовжити</button><button class="rx" id="brn" aria-label="Скинути незавершений тест">✕</button></div>'
+    :r?'<div class="td-sub"><button class="lnk mut" id="brn">Скинути незавершений тест</button></div>':'';
+  return '<div class="today">'+(any?top:'')+main+sub+'</div>'}
 function home(){
-  var A=allIds(),W=A.filter(wrong),runs=0;Object.keys(S.runs).forEach(function(k){runs+=S.runs[k]});
-  app.innerHTML=bar()+'<h1>Тренажери <em>тестів</em></h1><p class="lead">Тести до робочого зошита з фармакології — щотижня нова тема. Помилки повертаються, доки не запам\'ятаєш; питання вивчене після 2 правильних відповідей поспіль.</p>'+
-   '<div class="stats"><div><b>'+A.filter(known).length+'/'+A.length+'</b>правильно</div><div><b>'+WB().length+'</b>'+plural(WB().length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+runs+'</b>спроб</div></div>'+
-   repCard()+(GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно для всіх ('+Math.min(used(),FREE)+' / '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+resumeCard()+'<h2>Теми зошита</h2>'+WB().reverse().map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' у форматі КРОК 1 →</i>'+prog(a)+'</a>'}).join('')+
-   '<h2>Усі теми разом</h2><div class="card mix"><b>🎲 Мікс усіх тем</b><i>тести з різних тем упереміш — як на іспиті</i><div class="row">'+
-   [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+
-   '<button class="btn sm" data-n="all">Усі '+A.length+'</button></div></div>'+
-   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з усіх тем ('+W.length+')</button>'+
-   (KB().length?'<h2>База КРОК</h2><a class="card kb" href="#/krok"><span class="code">КРОК</span><b>📚 База КРОК</b><i>'+plural(allIds(KB()).length,'тест','тести','тестів')+' · '+plural(KB().length,'тема','теми','тем')+' — у тому числі теми, які ще не проходили →</i>'+prog(allIds(KB()))+'</a>':'')+
-   '<button class="btn share" id="bsh">📤 Поділитись тренажером з одногрупниками</button>'+syncCard()+
+  var A=allIds(),W=A.filter(wrong),KA=allIds(KB()),nmix=Math.min(20,A.length);
+  app.innerHTML=bar()+'<h1>Тренажер <em>КРОК 1</em></h1><p class="lead">Фармакологія за робочим зошитом: помилки повертаються, доки не запам\'ятаєш.</p>'+
+   todayCard()+(GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно ('+Math.min(used(),FREE)+' з '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+
+   '<div class="sec">Теми зошита</div>'+WB().reverse().map(function(t){return trow(t,plural(ids(t).length,'тест','тести','тестів')+(t.cards&&t.cards.length?' · '+plural(t.cards.length,'картка','картки','карток'):''))}).join('')+
+   '<div class="sec">Тренування</div><div class="tiles">'+
+    '<button class="tile" data-n="'+nmix+'">'+ic('🎲')+'<b>Мікс тем</b><i>'+nmix+' тестів упереміш, як на іспиті</i></button>'+
+    '<button class="tile" id="bw"'+(W.length?'':' disabled')+'>'+ic('🎯')+'<b>Мої помилки</b><i>'+(W.length?plural(W.length,'питання','питання','питань')+' з усіх тем':'поки немає')+'</i></button>'+
+    (KB().length?'<a class="tile" href="#/krok">'+ic('📚')+'<b>База КРОК</b><i>'+plural(KA.length,'тест','тести','тестів')+' · '+KA.filter(known).length+' правильно</i></a>':'')+
+    '<button class="tile" id="bsh">'+ic('📤')+'<b>Поділитись</b><i>з одногрупниками</i></button>'+
+   '</div>'+syncCard()+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація · '+(ON?'анонімна статистика відповідей (без імен) допомагає нам робити кращі ролики':'прогрес зберігається лише в цьому браузері')+'</div>';
   bindSync();bindRep();
-  app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){var n=b.dataset.n,s=shuffle(A);start(n=='all'?s:s.slice(0,+n),'Мікс усіх тем','mix',true,false)}});
+  app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){start(shuffle(A).slice(0,+b.dataset.n),'Мікс усіх тем','mix',true,false)}});
   $('bw').onclick=function(){start(W,'Помилки з усіх тем','mix',true,false)};
   $('bsh').onclick=function(){share('Тренажер тестів КРОК 1 з фармакології до робочого зошита: помилки повертаються, доки не запам\'ятаєш. Безкоштовно:','home')};
 }
 function krokHome(){
-  var L=KB(),A=allIds(L),W=A.filter(wrong);
-  app.innerHTML=bar()+'<a class="back" href="#/">← На головну</a><h1>База <em>КРОК</em></h1><p class="lead">Тести КРОК 1 з фармакології за темами — зокрема ті, яких ще не було на заняттях. Базу поступово доповнюємо.</p>'+resumeCard()+
-   '<div class="stats"><div><b>'+A.filter(known).length+'/'+A.length+'</b>правильно</div><div><b>'+L.length+'</b>'+plural(L.length,'тема','теми','тем').replace(/^\d+ /,'')+'</div><div><b>'+W.length+'</b>помилок</div></div>'+
-   '<div class="card mix"><b>🎲 Мікс бази КРОК</b><i>тести з усіх тем бази упереміш</i><div class="row">'+
-   [20,50].filter(function(n){return n<A.length}).map(function(n){return '<button class="btn sm" data-n="'+n+'">'+n+' тестів</button>'}).join('')+'</div></div>'+
-   '<button class="btn alt" id="bw"'+(W.length?'':' disabled')+'>Помилки з бази ('+W.length+')</button>'+
-   '<h2>Теми</h2>'+L.map(function(t){var a=ids(t);return '<a class="card" href="#/t/'+t.slug+'"><span class="code">'+esc(t.code)+'</span><b>'+esc(t.title)+'</b><i>'+plural(a.length,'тест','тести','тестів')+' →</i>'+prog(a)+'</a>'}).join('')+
+  var L=KB(),A=allIds(L),W=A.filter(wrong),n=A.filter(known).length;
+  app.innerHTML=bar()+'<a class="back" href="#/">← На головну</a><h1>База <em>КРОК</em></h1><p class="lead">Тести КРОК 1 з фармакології за темами — зокрема ті, яких ще не було на заняттях.</p>'+resumeCard()+
+   '<div class="sumc"><span class="tm"><span class="big">'+n+' <small>з '+A.length+'</small></span><span class="ts">правильно · '+plural(L.length,'тема','теми','тем')+' · помилок: '+W.length+'</span><span class="pb"><i style="width:'+(A.length?100*n/A.length:0)+'%"></i></span></span></div>'+
+   '<button class="btn" data-n="20">Мікс бази: 20 тестів</button>'+
+   '<div class="mlist"><button class="mrow" data-n="50">'+ic('🎲')+'<span class="tm">Мікс бази: 50 тестів<small>довше, як на іспиті</small></span><span class="chev">›</span></button>'+
+   '<button class="mrow" id="bw"'+(W.length?'':' disabled')+'>'+ic('🎯')+'<span class="tm">Помилки з бази<small>'+(W.length?plural(W.length,'питання','питання','питань'):'поки немає')+'</small></span><span class="chev">›</span></button></div>'+
+   '<div class="sec">Теми</div>'+L.map(function(t){return trow(t,plural(ids(t).length,'тест','тести','тестів'))}).join('')+
    '<div class="foot">Тести КРОК — дослівно; пояснень до них поки немає. Навчальний матеріал, не клінічна рекомендація.</div>';
   app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){start(shuffle(A).slice(0,+b.dataset.n),'Мікс бази КРОК','krokmix',true,false)}});
   $('bw').onclick=function(){start(W,'Помилки з бази КРОК','krokmix',true,false)};
 }
 function topic(slug){
   var t=TOPICS.filter(function(x){return x.slug==slug})[0];if(!t)return home();
-  var a=ids(t),W=a.filter(wrong),F=a.filter(function(i){return !learned(i)});
-  app.innerHTML=bar()+(t.krok?'<a class="back" href="#/krok">← База КРОК</a>':'<a class="back" href="#/">← Усі теми</a>')+'<h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+(t.krok?' · база КРОК · ':' у форматі КРОК 1 · ')+esc(t.code)+'</p>'+
-   '<div class="hero">'+svg(owl('s'))+'</div>'+(S.run&&S.run.key==slug?resumeCard():'')+
-   '<div class="stats"><div><b>'+a.filter(known).length+'/'+a.length+'</b>правильно</div><div><b>'+a.filter(learned).length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
-   (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div>':'')+
-   (t.cards&&t.cards.length?'<div class="card mix"><b>💊 Картки препаратів</b><i>'+plural(t.cards.length,'картка','картки','карток')+': препарат → ефекти, механізм дії, група; механізм → препарати. Множинний вибір, як на заняттях.</i>'+prog(t.cards.map(function(q){return q.id}))+'<div class="row"><button class="btn sm" id="bcd">Тренувати картки</button></div></div>':'')+
-   (t.warm&&t.warm.length||t.cards&&t.cards.length?'<h2>Тести зошита</h2>':'')+
-   '<button class="btn" id="b1">'+(t.warm&&t.warm.length?'Одразу до тестів ('+a.length+')':'Усі тести теми')+'</button>'+
-   '<button class="btn alt" id="b2"'+(W.length?'':' disabled')+'>Лише помилки ('+W.length+')</button>'+
-   '<button class="btn alt" id="b3"'+(F.length&&F.length<a.length?'':' disabled')+'>Невивчені ('+F.length+')</button>'+
-   '<div class="foot">Навчальний матеріал, не клінічна рекомендація</div>';
-  if($('bcd'))$('bcd').onclick=function(){start(t.cards.map(function(q){return q.id}),'Картки препаратів · '+t.title,slug,false,false,false,true)};
+  var a=ids(t),W=a.filter(wrong),F=a.filter(function(i){return !learned(i)}),n=a.filter(known).length,C=(t.cards||[]).map(function(q){return q.id});
+  app.innerHTML=bar()+(t.krok?'<a class="back" href="#/krok">← База КРОК</a>':'<a class="back" href="#/">← Усі теми</a>')+'<h1>'+esc(t.title)+'</h1><p class="lead">'+esc(t.code)+' · '+plural(a.length,'тест','тести','тестів')+(t.krok?' бази КРОК':' у форматі КРОК 1')+'</p>'+
+   (S.run&&S.run.key==slug?resumeCard():'')+
+   '<div class="sumc"><span class="tm"><span class="big">'+n+' <small>з '+a.length+'</small></span><span class="ts">правильно · '+a.filter(learned).length+' вивчено · найкраще '+(S.best[slug]||0)+' з '+a.length+'</span><span class="pb"><i style="width:'+(a.length?100*n/a.length:0)+'%"></i></span></span>'+svg(owl('s'))+'</div>'+
+   '<button class="btn" id="b1">Почати тести ('+a.length+')</button>'+
+   '<div class="sec">Інші режими</div><div class="mlist">'+
+   (t.warm&&t.warm.length?'<button class="mrow" id="bwu">'+ic('🔥')+'<span class="tm">Розминка<small>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' перед тестами</small></span><span class="chev">›</span></button>':'')+
+   (C.length?'<button class="mrow" id="bcd">'+ic('💊')+'<span class="tm">Картки препаратів<small>ефекти, механізм, група · '+C.filter(known).length+' з '+C.length+'</small></span><span class="chev">›</span></button>':'')+
+   '<button class="mrow" id="b2"'+(W.length?'':' disabled')+'>'+ic('🎯')+'<span class="tm">Лише помилки<small>'+(W.length?plural(W.length,'питання','питання','питань'):'поки немає')+'</small></span><span class="chev">›</span></button>'+
+   '<button class="mrow" id="b3"'+(F.length&&F.length<a.length?'':' disabled')+'>'+ic('📌')+'<span class="tm">Невивчені<small>'+(F.length&&F.length<a.length?plural(F.length,'питання','питання','питань'):'з\'являться після першого проходження')+'</small></span><span class="chev">›</span></button>'+
+   '</div><div class="foot">Навчальний матеріал, не клінічна рекомендація</div>';
+  if($('bcd'))$('bcd').onclick=function(){start(C,'Картки препаратів · '+t.title,slug,false,false,false,true)};
   if($('bwu'))$('bwu').onclick=function(){start(t.warm.map(function(q){return q.id}),'Розминка · '+t.title,slug,false,false,true)};
   $('b1').onclick=function(){start(a,t.title,slug,false,true)};$('b2').onclick=function(){start(W,t.title,slug,false,false)};$('b3').onclick=function(){start(F,t.title,slug,false,false)};
 }
