@@ -1,6 +1,6 @@
 
 var TOPICS=window.TOPICS,HANDLE='@easyfarmmed',L='ABCDE',KEY='efm-v2';
-var BY={};TOPICS.forEach(function(t){t.tests.concat(t.warm||[]).forEach(function(q){q.slug=t.slug;q.topic=t.title;BY[q.id]=q})});
+var BY={};TOPICS.forEach(function(t){t.tests.concat(t.warm||[],t.cards||[]).forEach(function(q){q.slug=t.slug;q.topic=t.title;BY[q.id]=q})});
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return {}}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}if(typeof pushProg=='function')pushProg()}
 var S=load();S.st=S.st||{};S.best=S.best||{};S.runs=S.runs||{};
@@ -121,20 +121,23 @@ function topic(slug){
   app.innerHTML=bar()+(t.krok?'<a class="back" href="#/krok">← База КРОК</a>':'<a class="back" href="#/">← Усі теми</a>')+'<h1>'+esc(t.title)+'</h1><p class="lead">'+plural(a.length,'тест','тести','тестів')+(t.krok?' · база КРОК · ':' у форматі КРОК 1 · ')+esc(t.code)+'</p>'+
    '<div class="hero">'+svg(owl('s'))+'</div>'+(S.run&&S.run.key==slug?resumeCard():'')+
    '<div class="stats"><div><b>'+a.filter(known).length+'/'+a.length+'</b>правильно</div><div><b>'+a.filter(learned).length+'</b>вивчено</div><div><b>'+(S.best[slug]||0)+'/'+a.length+'</b>найкраще</div><div><b>'+(S.runs[slug]||0)+'</b>спроб</div></div>'+
-   (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div><h2>Тести зошита</h2>':'')+
+   (t.warm&&t.warm.length?'<div class="card mix"><b>🔥 Розминка</b><i>'+plural(t.warm.length,'просте питання','прості питання','простих питань')+' — щоб згадати основне перед тестами зошита. Не обов\'язково.</i><div class="row"><button class="btn sm" id="bwu">Почати розминку</button></div></div>':'')+
+   (t.cards&&t.cards.length?'<div class="card mix"><b>💊 Картки препаратів</b><i>'+plural(t.cards.length,'картка','картки','карток')+': препарат → ефекти, механізм дії, група; механізм → препарати. Множинний вибір, як на заняттях.</i>'+prog(t.cards.map(function(q){return q.id}))+'<div class="row"><button class="btn sm" id="bcd">Тренувати картки</button></div></div>':'')+
+   (t.warm&&t.warm.length||t.cards&&t.cards.length?'<h2>Тести зошита</h2>':'')+
    '<button class="btn" id="b1">'+(t.warm&&t.warm.length?'Одразу до тестів ('+a.length+')':'Усі тести теми')+'</button>'+
    '<button class="btn alt" id="b2"'+(W.length?'':' disabled')+'>Лише помилки ('+W.length+')</button>'+
    '<button class="btn alt" id="b3"'+(F.length&&F.length<a.length?'':' disabled')+'>Невивчені ('+F.length+')</button>'+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація</div>';
+  if($('bcd'))$('bcd').onclick=function(){start(t.cards.map(function(q){return q.id}),'Картки препаратів · '+t.title,slug,false,false,false,true)};
   if($('bwu'))$('bwu').onclick=function(){start(t.warm.map(function(q){return q.id}),'Розминка · '+t.title,slug,false,false,true)};
   $('b1').onclick=function(){start(a,t.title,slug,false,true)};$('b2').onclick=function(){start(W,t.title,slug,false,false)};$('b3').onclick=function(){start(F,t.title,slug,false,false)};
 }
-function start(list,label,key,mixed,full,warm){if(!list.length)return;logEv('start',{key:key,n:list.length,warm:!!warm});R={q:shuffle(list),all:list.slice(),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm};keepRun();window.scrollTo(0,0);next()}
+function start(list,label,key,mixed,full,warm,cards){if(!list.length)return;logEv('start',{key:key,n:list.length,warm:!!warm});R={q:shuffle(list),all:list.slice(),n:list.length,done:0,first:{},miss:[],label:label,key:key,mixed:mixed,full:full,warm:!!warm,cards:!!cards};keepRun();window.scrollTo(0,0);next()}
 // 19.11: незавершений тест не губиться — зберігається після кожної відповіді (у браузері й на сервері разом із прогресом)
 function keepRun(){S.rt=Date.now();if(R){S.run=JSON.parse(JSON.stringify(R))}else delete S.run;save()}
 function runOk(r){return r&&r.q&&r.q.length&&r.all&&r.q.every(function(id){return BY[id]})}
 function resume(){var r=S.run;if(!runOk(r))return;logEv('resume',{key:r.key});R=JSON.parse(JSON.stringify(r));window.scrollTo(0,0);next()}
-function restart(){var r=S.run;if(!r)return;start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm)}
+function restart(){var r=S.run;if(!r)return;start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm,r.cards)}
 // 20.11: тонка смужка замість великої картки (користувач: «маячить в очі»); ✕ — скинути незавершений тест
 function resumeCard(){var r=S.run;if(!runOk(r))return '';var a=Object.keys(r.first||{}).length;
   return '<div class="resume"><span class="ri">⏸</span><span class="rt"><b>'+esc(r.label)+'</b><i>не завершено · '+r.done+'/'+r.n+'</i></span>'+
@@ -144,32 +147,50 @@ function bindResume(){if($('brs'))$('brs').onclick=resume;if($('brn'))$('brn').o
 function next(){
   if(!R)return home();if(!R.q.length)return finish();if(!R.warm&&locked())return gate();GSHOW=0;
   var id=R.q[0],t=BY[id],ord=shuffle(t.o.map(function(_,k){return k}));window.scrollTo(0,0);
+  var kind=R.warm?'РОЗМИНКА':id.slice(0,3)=='dc-'?'КАРТКА ПРЕПАРАТУ':'ТЕСТ';
   app.innerHTML=bar()+'<div class="bar"><i style="width:'+(100*R.done/R.n)+'%"></i></div><div class="meta"><span>'+R.done+' з '+R.n+' зараховано</span><span>залишилось: '+R.q.length+'</span></div>'+
-   '<div class="q"><small>'+(R.mixed?esc(t.topic).toUpperCase()+' · ':'')+(R.warm?'РОЗМИНКА':'ТЕСТ')+(R.first[id]===false?' · ЩЕ РАЗ':'')+'</small>'+esc(t.q)+'</div>'+
-   ord.map(function(k,j){return '<button class="opt" data-k="'+k+'"><i>'+L[j]+'</i><span>'+esc(t.o[k])+'</span></button>'}).join('')+'<div id="fb"></div>'+
+   '<div class="q"><small>'+(R.mixed?esc(t.topic).toUpperCase()+' · ':'')+kind+(t.m?' · КІЛЬКА ПРАВИЛЬНИХ':'')+(R.first[id]===false?' · ЩЕ РАЗ':'')+'</small>'+esc(t.q)+'</div>'+
+   ord.map(function(k,j){return '<button class="opt'+(t.m?' mul':'')+'" data-k="'+k+'"><i>'+(t.m?'':L[j])+'</i><span>'+esc(t.o[k])+'</span></button>'}).join('')+
+   (t.m?'<button class="btn" id="chk" disabled>Перевірити</button>':'')+'<div id="fb"></div>'+
    '<button class="endb" id="bend">'+(Object.keys(R.first).length?'⏹ Завершити тест і побачити результат':'✕ Вийти')+'</button>';
   $('bend').onclick=function(){finish(true)};
   var bs=app.querySelectorAll('.opt'),ans=false;
-  function pick(b){if(ans)return;ans=true;var k=+b.dataset.k,ok=k==t.k,s=st(id);
-    bs.forEach(function(x){var kk=+x.dataset.k;x.classList.add(kk==t.k?'ok':x==b?'bad':'dim')});
-    var first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.warm?'warm':R.mixed?'mix':'topic');
+  // спільне після відповіді: прогрес, повторення, бульбашка Пані КРОК
+  function fin(ok,html){var s=st(id),first=!(id in R.first);if(first)R.first[id]=ok;logAns(t,ok,first,R.warm?'warm':R.cards?'cards':R.mixed?'mix':'topic');
     R.q.shift();if(ok){s.c++;s.s++;R.done++}else{s.w++;s.s=0;R.q.splice(Math.min(3,R.q.length),0,id);if(R.miss.indexOf(id)<0)R.miss.push(id)}
     if(first&&!R.warm){sched(s,ok);markDay()}
     keepRun();
-    $('fb').innerHTML=krok(ok,t,k)+rozbir(t,ord,k)+'<button class="btn" id="nx">Далі →</button>';$('bend').textContent='⏹ Завершити тест і побачити результат';
+    $('fb').innerHTML=html+'<button class="btn" id="nx">Далі →</button>';$('bend').textContent='⏹ Завершити тест і побачити результат';
     var fbx=$('fb');if(fbx.scrollIntoView)setTimeout(function(){fbx.scrollIntoView({behavior:'smooth',block:'nearest'})},60);
     try{if(TGW&&TGW.HapticFeedback)TGW.HapticFeedback.notificationOccurred(ok?'success':'error')}catch(e){}
     $('nx').onclick=next}
+  if(t.m){   // 22.11: множинний вибір — позначити всі правильні, потім «Перевірити»
+    var sel={};
+    function nsel(){return Object.keys(sel).filter(function(k){return sel[k]}).length}
+    bs.forEach(function(b){b.onclick=function(){if(ans)return;var k=+b.dataset.k;sel[k]=!sel[k];b.classList.toggle('sel',!!sel[k]);$('chk').disabled=!nsel()}});
+    $('chk').onclick=function(){if(ans||!nsel())return;ans=true;var ks=t.ks,miss=[],extra=[];
+      bs.forEach(function(x){var k=+x.dataset.k,c=ks.indexOf(k)>=0,sx=!!sel[k];x.classList.add(c&&sx?'ok':c?'miss':sx?'bad':'dim');if(c&&!sx)miss.push(t.o[k]);if(!c&&sx)extra.push(t.o[k])});
+      $('chk').remove();fin(!miss.length&&!extra.length,krokM(!miss.length&&!extra.length,t,miss,extra))};
+    document.onkeydown=function(e){var n=parseInt(e.key,10);if(n>=1&&n<=bs.length&&!ans)bs[n-1].click();else if(e.key=='Enter'){if($('nx'))$('nx').click();else if($('chk'))$('chk').click()}};
+    return}
+  function pick(b){if(ans)return;ans=true;var k=+b.dataset.k,ok=k==t.k;
+    bs.forEach(function(x){var kk=+x.dataset.k;x.classList.add(kk==t.k?'ok':x==b?'bad':'dim')});
+    fin(ok,krok(ok,t,k)+rozbir(t,ord,k))}
   bs.forEach(function(b){b.onclick=function(){pick(b)}});
   document.onkeydown=function(e){var n=parseInt(e.key,10);if(n>=1&&n<=bs.length)pick(bs[n-1]);else if(e.key=='Enter'&&$('nx'))$('nx').click()};
 }
+// 22.11: бульбашка Пані КРОК для множинного вибору — що пропущено і що зайве
+function krokM(ok,t,miss,extra){var m=(ok?PRAISE:SCOLD)[Math.floor(Math.random()*4)];
+  return '<div class="krok '+(ok?'good':'bad')+'"><div class="kowl">'+svg(owlFace(ok),'-170 -210 340 400')+(ok?'<i class="sp s1">✦</i><i class="sp s2">✦</i><i class="sp s3">✦</i>':'')+'</div>'+
+    '<div class="kbub"><small>Пані КРОК</small><b>'+m+'</b>'+(miss.length?'<span class="kw">Пропущено: '+esc(miss.join(', '))+'</span>':'')+(extra.length?'<span class="kw">Зайве: '+esc(extra.join(', '))+'</span>':'')+
+    (t.x?'<p>'+esc(t.x)+'</p>':'')+'</div></div>'}
 function finish(early){
   var r=R;R=null;delete S.run;S.rt=Date.now();document.onkeydown=null;
   var k=Object.keys(r.first),a=k.length,ok=k.filter(function(i){return r.first[i]}).length,done=!r.q.length,perfect=done&&ok==r.n;
   logEv('finish',{key:r.key,a:Object.keys(r.first).length,ok:Object.keys(r.first).filter(function(i){return r.first[i]}).length,n:r.n,done:!r.q.length,early:!!early});
   var back=(r.key=='mix'||r.key=='rep')?'#/':r.key=='krokmix'?'#/krok':'#/t/'+r.key;
   if(!a){save();go(back);return}   // ще не відповідав — просто вийти
-  if(!r.warm&&done){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
+  if(!r.warm&&!r.cards&&done){S.runs[r.key]=(S.runs[r.key]||0)+1;if(r.full)S.best[r.key]=Math.max(S.best[r.key]||0,ok)}save();
   var TP=TOPICS.filter(function(x){return x.slug==r.key})[0],pct=Math.round(100*ok/a),col=pct>=80?'var(--teal)':pct>=50?'#f2a33a':'var(--red)';
   var shTxt=r.warm?'Розім\'явся перед тестами КРОК 1 з фармакології («'+(TP?TP.title:'')+'») — '+pct+'%. Тренажер до робочого зошита, безкоштовно:':'Пройшов тренажер «'+r.label+'»: '+pct+'% з першої спроби ('+ok+' з '+a+') 💪 Пані КРОК 0 : '+ok+' Я. Спробуй і ти — тести КРОК 1 до робочого зошита з фармакології:';
   app.innerHTML=bar()+'<h1>'+(perfect?'Ідеально!':done?'Зараховано всі '+r.n:'Тест <em>завершено</em>')+'</h1><p class="lead">'+esc(r.label)+'</p>'+
@@ -184,7 +205,7 @@ function finish(early){
    '<a class="btn alt" href="https://t.me/easyfarmmed" target="_blank" rel="noopener">Розбори й конспекти — Telegram '+HANDLE+'</a>';
   $('bsh').onclick=function(){share(shTxt,'res')};if($('bgo'))$('bgo').onclick=function(){start(ids(TP),TP.title,TP.slug,false,true)};
   app.querySelectorAll('[data-go]').forEach(function(x){x.onclick=function(){go(x.dataset.go)}});
-  $('b1').onclick=function(){start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
+  $('b1').onclick=function(){start(r.all.filter(function(id){return BY[id]}),r.label,r.key,r.mixed,r.full,r.warm,r.cards)};if($('b2'))$('b2').onclick=function(){start(r.miss.slice(),r.label,r.key,r.mixed,false)};
 }
 // 20.11: перехід, що спрацьовує й тоді, коли адреса вже така сама (посилання на той самий #… нічого не робило)
 function go(h){if((location.hash||'#/')==h)route();else location.hash=h}
