@@ -253,7 +253,7 @@ function gate(){if(!GSHOW)logEv('gate',{used:used()});GSHOW=1;window.scrollTo(0,
   if($('g3'))$('g3').onclick=function(){logEv('gate_check');S.subOk=0;subCheck(after)}}
 function route(){document.onkeydown=null;R=null;window.scrollTo(0,0);GSHOW=0;if(/^#\/krok/.test(location.hash))krokHome();else{var m=location.hash.match(/^#\/t\/([\w-]+)/);if(m)topic(m[1]);else home()}bindResume()}
 window.addEventListener('hashchange',route);if(!S.d0){S.d0=today();save()}route();subCheck(after);
-logEv('open',{h:(location.hash||'#/').slice(0,40),day:today()-S.d0,due:dueIds().length,streak:streak()});
+logEv('open',{h:(/^#\/[\w\/-]*$/.test(location.hash)?location.hash:'#/').slice(0,40),day:today()-S.d0,due:dueIds().length,streak:streak()});
 if(TGW){try{TGW.ready();TGW.expand()}catch(e){}
   var cdone=0;function useCode(v){if(cdone)return;cdone=1;if(v&&/^[A-Z2-9]{12}$/.test(v))S.code=v;else if(!S.code)S.code=rnd(12,B32);save();
     try{TGW.CloudStorage.setItem('efm_code',S.code,function(){})}catch(e){}pull(function(){if(!R&&!GSHOW)route()})}
