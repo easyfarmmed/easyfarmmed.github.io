@@ -8,14 +8,14 @@ var S=load();S.st=S.st||{};S.best=S.best||{};S.runs=S.runs||{};
 Object.keys(window.LEGACY||{}).forEach(function(k){try{var o=JSON.parse(localStorage.getItem(k));if(!o||S['mig_'+k])return;var ids=LEGACY[k],sl=ids[0].split('-')[0];
   Object.keys(o.st||{}).forEach(function(i){var id=ids[+i];if(id&&!S.st[id])S.st[id]=o.st[i]});
   if(o.best)S.best[sl]=Math.max(S.best[sl]||0,o.best);if(o.runs)S.runs[sl]=(S.runs[sl]||0)+o.runs;S['mig_'+k]=1;save()}catch(e){}});
-try{var m=location.search.match(/[?&]src=([\w-]{1,30})/);if(m){S.src=S.src||m[1];S.lastSrc=m[1];save()}}catch(e){}
+try{var m=location.search.match(/[?&]src=([\w-]{1,30})/);if(m){S.src=S.src||m[1];S.lastSrc=m[1];if(m[1]=='remind')S.rem=1;save()}}catch(e){}
 // ---- етапи 2–3: код прогресу, Telegram Mini App, анонімні відповіді (вмикається, коли в config.js є ключі Supabase) ----
 var CFG=window.EFM_CFG||{},ON=!!(CFG.url&&CFG.key),B32='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 var TGW=(window.Telegram&&Telegram.WebApp&&Telegram.WebApp.initData)?Telegram.WebApp:null;
 function rnd(n,abc){var a=new Uint8Array(n),s='';crypto.getRandomValues(a);for(var i=0;i<n;i++)s+=abc[a[i]%abc.length];return s}
 function fmt(c){return c.slice(0,4)+'-'+c.slice(4,8)+'-'+c.slice(8)}
 if(!S.uid){S.uid=rnd(16,'0123456789abcdef');save()}
-if(TGW){var sp=(TGW.initDataUnsafe||{}).start_param;S.lastSrc=sp&&/^[\w-]{1,30}$/.test(sp)?sp:'tgapp';S.src=S.src||S.lastSrc}  // t.me/EasyFarmMedBot?startapp=channel → src=channel
+if(TGW){var sp=(TGW.initDataUnsafe||{}).start_param;S.lastSrc=sp&&/^[\w-]{1,30}$/.test(sp)?sp:(m&&m[1])||'tgapp';S.src=S.src||S.lastSrc}  // t.me/EasyFarmMedBot?startapp=channel → src=channel
 function hdr(){var h={'apikey':CFG.key,'Content-Type':'application/json'};if(/^eyJ/.test(CFG.key))h.Authorization='Bearer '+CFG.key;return h}
 function api(path,body,keep){return fetch(CFG.url.replace(/\/$/,'')+path,{method:'POST',headers:hdr(),body:JSON.stringify(body),keepalive:!!keep})}
 var PQ=[];try{PQ=JSON.parse(localStorage.getItem('efm-q'))||[]}catch(e){}
@@ -98,7 +98,11 @@ function todayCard(){var D=dueIds(),sk=streak(),td=(S.days||{})[today()]||0,r=ru
   else main='<div class="td-h">'+(any?'На сьогодні все повторено ✓':'Почни з теми тижня')+'</div><div class="td-s">'+esc(nt.title)+' · '+plural(ids(nt).length,'тест','тести','тестів')+(nt.cards&&nt.cards.length?' · '+plural(nt.cards.length,'картка','картки','карток'):'')+'</div><a class="btn'+(any?' alt':'')+'" href="#/t/'+nt.slug+'">Відкрити тему</a>';
   var sub=r&&D.length?'<div class="td-sub"><span class="tm">⏸ Не завершено: <b>'+esc(r.label)+'</b> · '+r.done+'/'+r.n+'</span><button class="lnk" id="brs">Продовжити</button><button class="rx" id="brn" aria-label="Скинути незавершений тест">✕</button></div>'
     :r?'<div class="td-sub"><button class="lnk mut" id="brn">Скинути незавершений тест</button></div>':'';
-  return '<div class="today">'+(any?top:'')+main+sub+'</div>'}
+  // 24.11: нагадування від бота о 19:00 (лише в Telegram, коли вже є відповіді)
+  var rem=TGW&&S.code&&any?(S.rem?'<div class="td-sub"><span class="tm mut">🔔 Нагадування о 19:00 увімкнено · вимкнути — /stop у чаті з ботом</span></div>'
+    :'<div class="td-sub rem"><span class="tm">🔔 Нагадувати о 19:00, коли є що повторити</span><button class="lnk" id="brem">Увімкнути</button></div>'):'';
+  return '<div class="today">'+(any?top:'')+main+sub+rem+'</div>'}
+function bindRem(){if($('brem'))$('brem').onclick=function(){logEv('remind_on');S.rem=1;save();try{TGW.openTelegramLink('https://t.me/EasyFarmMedBot?start=r_'+S.code)}catch(e){location.href='https://t.me/EasyFarmMedBot?start=r_'+S.code}}}
 function home(){
   var A=allIds(),W=A.filter(wrong),KA=allIds(KB()),nmix=Math.min(20,A.length);
   app.innerHTML=bar()+'<h1>Тренажер <em>КРОК 1</em></h1><p class="lead">Фармакологія за робочим зошитом: помилки повертаються, доки не запам\'ятаєш.</p>'+
@@ -111,7 +115,7 @@ function home(){
     '<button class="tile" id="bsh">'+ic('📤')+'<b>Поділитись</b><i>з одногрупниками</i></button>'+
    '</div>'+syncCard()+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація · '+(ON?'анонімна статистика відповідей (без імен) допомагає нам робити кращі ролики':'прогрес зберігається лише в цьому браузері')+'</div>';
-  bindSync();bindRep();
+  bindSync();bindRep();bindRem();
   app.querySelectorAll('[data-n]').forEach(function(b){b.onclick=function(){start(shuffle(A).slice(0,+b.dataset.n),'Мікс усіх тем','mix',true,false)}});
   $('bw').onclick=function(){start(W,'Помилки з усіх тем','mix',true,false)};
   $('bsh').onclick=function(){share('Тренажер тестів КРОК 1 з фармакології до робочого зошита: помилки повертаються, доки не запам\'ятаєш. Безкоштовно:','home')};
