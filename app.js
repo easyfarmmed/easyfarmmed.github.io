@@ -107,12 +107,12 @@ function home(){
   var A=allIds(),W=A.filter(wrong),KA=allIds(KB()),nmix=Math.min(20,A.length);
   app.innerHTML=bar()+'<h1>Тренажер <em>КРОК 1</em></h1><p class="lead">Фармакологія за робочим зошитом: помилки повертаються, доки не запам\'ятаєш.</p>'+
    todayCard()+(GATE&&SUB!==true?'<div class="note">🎁 Перші '+FREE+' тестів — безкоштовно ('+Math.min(used(),FREE)+' з '+FREE+'). Далі — для підписників '+HANDLE+'.</div>':'')+
+   (KB().length?'<a class="kbig" href="#/krok"><span class="kic">📚</span><span class="kt"><b>База КРОК</b><i>'+plural(KA.length,'тест','тести','тестів')+' з іспитів минулих років · '+KA.filter(known).length+' правильно</i></span><span class="kgo">Тренувати ›</span></a>':'')+
    '<div class="sec">Теми зошита</div>'+WB().reverse().map(function(t){return trow(t,plural(ids(t).length,'тест','тести','тестів')+(t.cards&&t.cards.length?' · '+plural(t.cards.length,'картка','картки','карток'):''))}).join('')+
    '<div class="sec">Тренування</div><div class="tiles">'+
     '<button class="tile" data-n="'+nmix+'">'+ic('🎲')+'<b>Мікс тем</b><i>'+nmix+' тестів упереміш, як на іспиті</i></button>'+
     '<button class="tile" id="bw"'+(W.length?'':' disabled')+'>'+ic('🎯')+'<b>Мої помилки</b><i>'+(W.length?plural(W.length,'питання','питання','питань')+' з усіх тем':'поки немає')+'</i></button>'+
-    (KB().length?'<a class="tile" href="#/krok">'+ic('📚')+'<b>База КРОК</b><i>'+plural(KA.length,'тест','тести','тестів')+' · '+KA.filter(known).length+' правильно</i></a>':'')+
-    '<button class="tile" id="bsh">'+ic('📤')+'<b>Поділитись</b><i>з одногрупниками</i></button>'+
+    '<button class="tile wide" id="bsh">'+ic('📤')+'<b>Поділитись</b><i>з одногрупниками</i></button>'+
    '</div>'+syncCard()+
    '<div class="foot">Навчальний матеріал, не клінічна рекомендація · '+(ON?'анонімна статистика відповідей (без імен) допомагає нам робити кращі ролики':'прогрес зберігається лише в цьому браузері')+'</div>';
   bindSync();bindRep();bindRem();
